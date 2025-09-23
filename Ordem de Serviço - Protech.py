@@ -2,6 +2,82 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from datetime import datetime, date
 import csv
+import json
+import hashlib
+import os
+import tempfile
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+
+
+def verificar_login(usuario, senha_digitada):
+    try:
+        with open("usuarios.json", "r", encoding="utf-8") as f:
+            usuarios = json.load(f)
+        if usuario in usuarios:
+            senha_armazenada = usuarios[usuario]["senha"]
+            senha_hash = hashlib.md5(senha_digitada.encode()).hexdigest()
+            if senha_hash == senha_armazenada:
+                return usuarios[usuario]["nivel"]
+    except Exception as e:
+        print(f"Erro ao verificar login: {e}")
+    return None
+
+def tela_login():
+    login = tk.Tk()
+    login.title("🔐 Login")
+    login.geometry("300x200")
+    login.resizable(False, False)
+
+    resultado = {"nivel": None}
+
+    def autenticar():
+        usuario = entrada_usuario.get()
+        senha = entrada_senha.get()
+        nivel = verificar_login(usuario, senha)
+        if nivel:
+            resultado["nivel"] = nivel
+            login.destroy()
+        else:
+            messagebox.showerror("Erro", "Usuário ou senha inválidos.")
+
+    def fechar_login():
+        resultado["nivel"] = None
+        login.destroy()
+
+    login.protocol("WM_DELETE_WINDOW", fechar_login)
+
+    tk.Label(login, text="Usuário:").pack(pady=(20, 5))
+    entrada_usuario = tk.Entry(login)
+    entrada_usuario.pack()
+
+    tk.Label(login, text="Senha:").pack(pady=5)
+    entrada_senha = tk.Entry(login, show="*", width=30)
+    entrada_senha.pack()
+
+    tk.Button(login, text="Entrar", command=autenticar, bg="#4CAF50", fg="white").pack(pady=20)
+
+    login.mainloop()
+    return resultado["nivel"]
+
+def iniciar_sistema(nivel):
+    root = tk.Tk()
+    root.title(f"Sistema de Ordens - Acesso: {nivel}")
+    root.geometry("1000x600")
+
+    if nivel == "gerente":
+        tk.Label(root, text="Bem-vindo, Gerente!", font=("Arial", 14)).pack(pady=10)
+    elif nivel == "operador":
+        tk.Label(root, text="Bem-vindo, Operador!", font=("Arial", 14)).pack(pady=10)
+
+    root.mainloop()
+
+if __name__ == "__main__":
+    nivel = tela_login()
+    if nivel:
+        iniciar_sistema(nivel)
+    else:
+        print("Login cancelado. Encerrando o sistema.")
 
 ordens_servico = []     
 
@@ -9,12 +85,12 @@ ordens_servico = []
 def adicionar_ordem():
     campos = [
         entrada_modelo, entrada_descricao, entrada_tipo,
-        entrada_custo, entrada_receita,
+        entrada_custo, entrada_valor_total,
         entrada_data_ordem, entrada_data_entrega,
         entrada_cliente, entrada_telefone
     ]
     nomes_campos = [
-        "modelo", "Descrição", "tipo", "custo", "receita",
+        "modelo", "Descrição", "tipo", "custo", "valor total",
         "Data da Ordem", "Data de Entrega", "cliente", "telefone"
     ]
     campos_invalidos = validar_campos(campos, nomes_campos)
@@ -30,7 +106,7 @@ def adicionar_ordem():
             "descricao": entrada_descricao.get("1.0", tk.END).strip(),
             "tipo": entrada_tipo.get(),
             "custo": float(entrada_custo.get()),
-            "receita": float(entrada_receita.get()),
+            "valor_total": float(entrada_valor_total.get()),
             "data_ordem": datetime.strptime(entrada_data_ordem.get(), "%d/%m/%Y"),
             "data_entrega": datetime.strptime(entrada_data_entrega.get(), "%d/%m/%Y"),
             "cliente": entrada_cliente.get(),
@@ -66,7 +142,7 @@ def limpar_campos():
         entrada_descricao,
         entrada_tipo,
         entrada_custo,
-        entrada_receita,
+        entrada_valor_total,
         entrada_data_ordem,
         entrada_data_entrega,
         entrada_cliente,
@@ -85,7 +161,7 @@ def atualizar_tabela(lista):
     for i, ordem in enumerate(lista, start=1):
         dias_diferenca = (ordem["data_entrega"] - ordem["data_ordem"]).days
         tag = "atraso" if dias_diferenca >= 5 else ""
-        lucro = ordem["receita"] - ordem["custo"]
+        lucro = ordem["valor_total"] - ordem["custo"]
         zebra = "par" if i % 2 == 0 else "impar"
         tabela.insert("", "end", values=(
             i,
@@ -93,13 +169,31 @@ def atualizar_tabela(lista):
             ordem["descricao"],
             ordem["tipo"],
             f"R${ordem['custo']:.2f}",
-            f"R${ordem['receita']:.2f}",
+            f"R${ordem['valor_total']:.2f}",
             f"R${lucro:.2f}",
             ordem["data_ordem"].strftime("%d/%m/%Y"),
             ordem["data_entrega"].strftime("%d/%m/%Y"),
             ordem["cliente"],
             ordem["telefone"]
         ), tags=(tag, zebra))
+
+
+def salvar_descricao_pdf():
+    texto = entrada_descricao.get("1.0", tk.END).strip()
+    if texto:
+        caminho = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF files", "*.pdf")])
+        if caminho:
+            c = canvas.Canvas(caminho, pagesize=A4)
+            largura, altura = A4
+            linhas = texto.split("\n")
+            y = altura - 50
+            for linha in linhas:
+                c.drawString(50, y, linha)
+                y -= 15
+            c.save()
+            messagebox.showinfo("PDF", "Descrição salva em PDF com sucesso.")
+    else:
+        messagebox.showinfo("PDF", "A descrição está vazia.")
 
 # Cores alternadas
     tabela.tag_configure("par", background="#f9f9f9")
@@ -108,14 +202,14 @@ def atualizar_tabela(lista):
 
 def calcular_balanco():
     total_custo = sum(o["custo"] for o in ordens_servico)
-    total_receita = sum(o["receita"] for o in ordens_servico)
-    balanco = total_receita - total_custo
-    messagebox.showinfo("Balanço Geral", f"Receita: R${total_receita:.2f}\nCusto: R${total_custo:.2f}\nBalanço: R${balanco:.2f}")
+    total_valor_total = sum(o["valor_total"] for o in ordens_servico)
+    balanco = total_valor_total - total_custo
+    messagebox.showinfo("Balanço Geral", f"valor total: R${total_valor_total:.2f}\nCusto: R${total_custo:.2f}\nBalanço: R${balanco:.2f}")
 
 
 def salvar_csv():
     with open("ordens_servico.csv", "w", newline="", encoding="utf-8") as f:
-        campos = ["modelo", "descricao", "tipo", "custo", "receita", "data_ordem", "data_entrega", "cliente", "telefone"]
+        campos = ["modelo", "descricao", "tipo", "custo", "valor_total", "data_ordem", "data_entrega", "cliente", "telefone"]
         writer = csv.DictWriter(f, fieldnames=campos)
         writer.writeheader()
         for o in ordens_servico:
@@ -124,7 +218,7 @@ def salvar_csv():
                 "descricao": o["descricao"],
                 "tipo": o["tipo"],
                 "custo": o["custo"],
-                "receita": o["receita"],
+                "valor_total": o["valor_total"],
                 "data_ordem": o["data_ordem"].strftime("%d/%m/%Y"),
                 "data_entrega": o["data_entrega"].strftime("%d/%m/%Y"),
                 "cliente": o["cliente"],
@@ -140,7 +234,7 @@ def salvar_como_csv():
     )
     if caminho:
         with open(caminho, "w", newline="", encoding="utf-8") as f:
-            campos = ["modelo", "descricao", "tipo", "custo", "receita", "data_ordem", "data_entrega", "cliente", "telefone"]
+            campos = ["modelo", "descricao", "tipo", "custo", "valor_total", "data_ordem", "data_entrega", "cliente", "telefone"]
             writer = csv.DictWriter(f, fieldnames=campos)
             writer.writeheader()
             for o in ordens_servico:
@@ -149,7 +243,7 @@ def salvar_como_csv():
                     "descricao": o["descricao"],
                     "tipo": o["tipo"],
                     "custo": o["custo"],
-                    "receita": o["receita"],
+                    "valor_total": o["valor_total"],
                     "data_ordem": o["data_ordem"].strftime("%d/%m/%Y"),
                     "data_entrega": o["data_entrega"].strftime("%d/%m/%Y"),
                     "cliente": o["cliente"],
@@ -173,7 +267,7 @@ def carregar_csv():
                         "descricao": linha.get("descricao", ""),
                         "tipo": linha.get("tipo", ""),
                         "custo": float(linha.get("custo", 0)),
-                        "receita": float(linha.get("receita", 0)),
+                        "valor_total": float(linha.get("valor_total", 0)),
                         "data_ordem": datetime.strptime(linha.get("data_ordem", "01/01/2000"), "%d/%m/%Y"),
                         "data_entrega": datetime.strptime(linha.get("data_entrega", "01/01/2000"), "%d/%m/%Y"),
                         "cliente": linha.get("cliente", ""),     # ← garante que existe
@@ -199,9 +293,9 @@ def filtrar_periodo():
         filtradas = [o for o in ordens_servico if inicio <= o["data_ordem"] <= fim]
         atualizar_tabela(filtradas)
         total_custo = sum(o["custo"] for o in filtradas)
-        total_receita = sum(o["receita"] for o in filtradas)
-        balanco = total_receita - total_custo
-        messagebox.showinfo("Resumo do Período", f"Receita: R${total_receita:.2f}\nCusto: R${total_custo:.2f}\nBalanço: R${balanco:.2f}")
+        total_valor_total = sum(o["valor_total"] for o in filtradas)
+        balanco = total_valor_total - total_custo
+        messagebox.showinfo("Resumo do Período", f"Valor Total: R${total_valor_total:.2f}\nCusto: R${total_custo:.2f}\nBalanço: R${balanco:.2f}")
     except ValueError:
         messagebox.showerror("Erro", "Use datas no formato DD/MM/AAAA.")
 
@@ -225,8 +319,8 @@ def carregar_para_edicao(event=None):
     entrada_custo.delete(0, tk.END)
     entrada_custo.insert(0, valores[4].replace("R$", "").replace(",", "."))
 
-    entrada_receita.delete(0, tk.END)
-    entrada_receita.insert(0, valores[5].replace("R$", "").replace(",", "."))
+    entrada_valor_total.delete(0, tk.END)
+    entrada_valor_total.insert(0, valores[5].replace("R$", "").replace(",", "."))
 
     entrada_data_ordem.delete(0, tk.END)
     entrada_data_ordem.insert(0, valores[7])
@@ -270,7 +364,7 @@ def salvar_edicao():
             "descricao": entrada_descricao.get("1.0", tk.END).strip(),
             "tipo": entrada_tipo.get(),
             "custo": float(entrada_custo.get()),
-            "receita": float(entrada_receita.get()),
+            "valor_total": float(entrada_valor_total.get()),
             "data_ordem": datetime.strptime(entrada_data_ordem.get(), "%d/%m/%Y"),
             "data_entrega": datetime.strptime(entrada_data_entrega.get(), "%d/%m/%Y"),
             "cliente": entrada_cliente.get(),
@@ -341,7 +435,7 @@ def ver_detalhes():
         ("Descrição", valores[2]),
         ("Tipo", valores[3]),
         ("Custo", valores[4]),
-        ("Receita", valores[5]),
+        ("Valor Total", valores[5]),
         ("Lucro", valores[6]),
         ("Data da Ordem", valores[7]),
         ("Data de Entrega", valores[8])
@@ -361,6 +455,15 @@ def ver_detalhes():
     # Botão de fechar
     tk.Button(janela_detalhes, text="Fechar", command=janela_detalhes.destroy, bg="#d9534f", fg="white", font=("Arial", 10, "bold")).pack(pady=10)
 
+    #Botão de Imprimir e Salvar
+
+    frame_botoes = tk.Frame(root)
+    frame_botoes.pack(pady=10)
+
+    tk.Button(frame_botoes, text="🖨️ Imprimir", command=imprimir_descricao).pack(side="left", padx=5)
+    tk.Button(frame_botoes, text="📄 Salvar PDF", command=salvar_descricao_pdf).pack(side="left", padx=5)
+
+
 def duplicar_ordem():
     selecionado = tabela.focus()
     if not selecionado:
@@ -375,7 +478,7 @@ def duplicar_ordem():
             "descricao": valores[2],
             "tipo": valores[3],
             "custo": float(valores[4].replace("R$", "").replace(",", ".")),
-            "receita": float(valores[5].replace("R$", "").replace(",", ".")),
+            "valor_total": float(valores[5].replace("R$", "").replace(",", ".")),
             "data_ordem": datetime.strptime(valores[7], "%d/%m/%Y"),
             "data_entrega": datetime.strptime(valores[8], "%d/%m/%Y"),
             "cliente": valores[9] if len(valores) > 9 else "",
@@ -392,6 +495,17 @@ def duplicar_ordem():
 tk.Button(janela, text="Salvar Como...", command=salvar_como_csv, width=20, **botao_padrao).pack(pady=5)
 
 modo_escuro = False
+
+# Botão de Imprimir
+
+def imprimir_descricao():
+    texto = entrada_descricao.get("1.0", tk.END).strip()
+    if texto:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".txt", mode="w", encoding="utf-8") as temp:
+            temp.write(texto)
+            os.startfile(temp.name, "print")
+    else:
+        messagebox.showinfo("Impressão", "A descrição está vazia.")
 
 def alternar_tema():
     global modo_escuro
@@ -444,9 +558,9 @@ tk.Label(frame_entrada, text="Custo (R$):", bg="#f2f2f2", font=("Segoe UI", 10, 
 entrada_custo = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
 entrada_custo.grid(row=1, column=1)
 
-tk.Label(frame_entrada, text="Receita (R$):", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=1, column=2, padx=5)
-entrada_receita = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
-entrada_receita.grid(row=1, column=3)
+tk.Label(frame_entrada, text="valor total (R$):", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=1, column=2, padx=5)
+entrada_valor_total = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
+entrada_valor_total.grid(row=1, column=3)
 
 tk.Label(frame_entrada, text="Data Ordem:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=2, column=0, padx=5)
 entrada_data_ordem = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
@@ -477,7 +591,6 @@ tk.Button(frame_botoes, text="Carregar para Edição", command=carregar_para_edi
 tk.Button(frame_botoes, text="Salvar Edição", command=salvar_edicao, width=20, **botao_padrao).grid(row=1, column=1, padx=5, pady=5)
 tk.Button(frame_botoes, text="Limpar Campos", command=limpar_campos, width=20, **botao_padrao).grid(row=1, column=2, padx=5, pady=5)
 
-
 # Filtro por período
 frame_filtro = tk.Frame(janela, bg="#f2f2f2")
 frame_filtro.pack(pady=10)
@@ -490,7 +603,7 @@ entrada_fim.grid(row=0, column=2)
 tk.Button(frame_filtro, text="Filtrar e Mostrar Resumo", command=filtrar_periodo, width=25, **botao_padrao).grid(row=0, column=3, padx=5)
 
 # Tabela
-colunas = ("ID", "modelo", "Descrição", "tipo", "custo", "receita", "Valor Lucro", "Data Ordem", "Data Entrega", "cliente", "telefone")
+colunas = ("ID", "modelo", "Descrição", "tipo", "custo", "valor total", "Valor Lucro", "Data Ordem", "Data Entrega", "cliente", "telefone")
 tabela = ttk.Treeview(janela, columns=colunas, show="headings", height=20)
 tabela.tag_configure("atraso", background="#ffcccc")  # vermelho claro para entregas com atraso
 
