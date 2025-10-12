@@ -8,7 +8,7 @@ import os
 import tempfile
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
-
+from tkcalendar import DateEntry
 
 def verificar_login(usuario, senha_digitada):
     try:
@@ -18,7 +18,7 @@ def verificar_login(usuario, senha_digitada):
             senha_armazenada = usuarios[usuario]["senha"]
             senha_hash = hashlib.md5(senha_digitada.encode()).hexdigest()
             if senha_hash == senha_armazenada:
-                return usuarios[usuario]["nivel"]
+                return usuarios[usuario]["nivel"]   
     except Exception as e:
         print(f"Erro ao verificar login: {e}")
     return None
@@ -178,22 +178,7 @@ def atualizar_tabela(lista):
         ), tags=(tag, zebra))
 
 
-def salvar_descricao_pdf():
-    texto = entrada_descricao.get("1.0", tk.END).strip()
-    if texto:
-        caminho = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF files", "*.pdf")])
-        if caminho:
-            c = canvas.Canvas(caminho, pagesize=A4)
-            largura, altura = A4
-            linhas = texto.split("\n")
-            y = altura - 50
-            for linha in linhas:
-                c.drawString(50, y, linha)
-                y -= 15
-            c.save()
-            messagebox.showinfo("PDF", "Descrição salva em PDF com sucesso.")
-    else:
-        messagebox.showinfo("PDF", "A descrição está vazia.")
+
 
 # Cores alternadas
     tabela.tag_configure("par", background="#f9f9f9")
@@ -417,7 +402,7 @@ def ver_detalhes():
 
     janela_detalhes = tk.Toplevel()
     janela_detalhes.title("🔍 Detalhes da Ordem")
-    janela_detalhes.geometry("420x520")
+    janela_detalhes.geometry("420x560")
     janela_detalhes.configure(bg="#f0f0f0")
     janela_detalhes.resizable(False, False)
 
@@ -429,7 +414,7 @@ def ver_detalhes():
     # Separador visual
     tk.Label(janela_detalhes, text="────────────────────────────", bg="#f0f0f0", fg="#888").pack(pady=10)
 
-    # Demais campos organizados
+    # Lista de campos adicionais
     campos = [
         ("Modelo", valores[1]),
         ("Descrição", valores[2]),
@@ -448,22 +433,42 @@ def ver_detalhes():
         tk.Label(frame, text=valor, font=("Arial", 10), anchor="w", bg="#f0f0f0").pack(side="left")
 
     # Linha de assinatura
-    tk.Label(janela_detalhes, text="", bg="#f0f0f0").pack(pady=10)  # espaçamento
+    tk.Label(janela_detalhes, text="", bg="#f0f0f0").pack(pady=10)
     tk.Frame(janela_detalhes, height=2, bg="black").pack(fill="x", padx=60, pady=(10, 2))
     tk.Label(janela_detalhes, text="Assinatura do cliente", font=("Arial", 10, "italic"), bg="#f0f0f0").pack(pady=(0, 20))
 
-    # Botão de fechar
-    tk.Button(janela_detalhes, text="Fechar", command=janela_detalhes.destroy, bg="#d9534f", fg="white", font=("Arial", 10, "bold")).pack(pady=10)
+    # Funções internas para exportar os dados
+    def imprimir_detalhes():
+        texto = "\n".join([f"{label}: {valor}" for label, valor in campos])
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".txt", mode="w", encoding="utf-8") as temp:
+            temp.write(texto)
+            os.startfile(temp.name, "print")
 
-    #Botão de Imprimir e Salvar
+    def salvar_detalhes_pdf():
+        caminho = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF files", "*.pdf")])
+        if caminho:
+            c = canvas.Canvas(caminho, pagesize=A4)
+            largura, altura = A4
+            y = altura - 50
+            c.setFont("Helvetica", 12)
+            c.drawString(50, y, f"Ordem #{valores[0]}")
+            y -= 30
+            for label, valor in campos:
+                c.drawString(50, y, f"{label}: {valor}")
+                y -= 20
+            c.drawString(50, y - 20, "Assinatura do cliente: __________________________")
+            c.save()
+            messagebox.showinfo("PDF", "Detalhes salvos em PDF com sucesso.")
 
-    frame_botoes = tk.Frame(root)
+    # Botões de ação
+    frame_botoes = tk.Frame(janela_detalhes, bg="#f0f0f0")
     frame_botoes.pack(pady=10)
 
-    tk.Button(frame_botoes, text="🖨️ Imprimir", command=imprimir_descricao).pack(side="left", padx=5)
-    tk.Button(frame_botoes, text="📄 Salvar PDF", command=salvar_descricao_pdf).pack(side="left", padx=5)
+    tk.Button(frame_botoes, text="🖨️ Imprimir", command=imprimir_detalhes, bg="#0275d8", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=5)
+    tk.Button(frame_botoes, text="📄 Salvar PDF", command=salvar_detalhes_pdf, bg="#5bc0de", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=5)
+    tk.Button(frame_botoes, text="❌ Fechar", command=janela_detalhes.destroy, bg="#d9534f", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=5)
 
-
+    
 def duplicar_ordem():
     selecionado = tabela.focus()
     if not selecionado:
@@ -496,16 +501,7 @@ tk.Button(janela, text="Salvar Como...", command=salvar_como_csv, width=20, **bo
 
 modo_escuro = False
 
-# Botão de Imprimir
 
-def imprimir_descricao():
-    texto = entrada_descricao.get("1.0", tk.END).strip()
-    if texto:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".txt", mode="w", encoding="utf-8") as temp:
-            temp.write(texto)
-            os.startfile(temp.name, "print")
-    else:
-        messagebox.showinfo("Impressão", "A descrição está vazia.")
 
 def alternar_tema():
     global modo_escuro
@@ -544,11 +540,14 @@ frame_entrada.pack(pady=10)
 
 tk.Label(frame_entrada, text="Modelo:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=0, column=0, padx=5)
 entrada_modelo = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
-entrada_modelo.grid(row=0, column=1)
+entrada_modelo.grid(row=0, column=1)    
 
 tk.Label(frame_entrada, text="Descrição:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=0, column=4, padx=5)
 entrada_descricao = tk.Text(frame_entrada, width=40, height=5, font=("Segoe UI", 10))
 entrada_descricao.grid(row=0, column=5, rowspan=5, pady=5)
+
+frame_botoes_descricao = tk.Frame(frame_entrada, bg="#f2f2f2")
+frame_botoes_descricao.grid(row=5, column=5, pady=(0, 10), sticky="e")
 
 tk.Label(frame_entrada, text="Tipo:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=0, column=2, padx=5)
 entrada_tipo = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
@@ -562,9 +561,13 @@ tk.Label(frame_entrada, text="valor total (R$):", bg="#f2f2f2", font=("Segoe UI"
 entrada_valor_total = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
 entrada_valor_total.grid(row=1, column=3)
 
-tk.Label(frame_entrada, text="Data Ordem:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=2, column=0, padx=5)
-entrada_data_ordem = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
-entrada_data_ordem.grid(row=2, column=1)
+tk.Label(frame_entrada, text="Data da Ordem:", font=("Arial", 10)).grid(row=7, column=0, sticky="w", padx=5, pady=2)
+entrada_data_ordem = DateEntry(frame_entrada, font=("Arial", 10), date_pattern="dd/mm/yyyy", width=15, background="white", foreground="black", borderwidth=2)
+entrada_data_ordem.grid(row=7, column=1, padx=5, pady=2)
+
+btn_hoje = tk.Button(frame_entrada, text="Hoje", font=("Arial", 9), bg="#5cb85c", fg="white",
+command=lambda: entrada_data_ordem.set_date(datetime.today()))
+btn_hoje.grid(row=7, column=2, padx=5)
 
 
 tk.Label(frame_entrada, text="Data Entrega:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=2, column=2, padx=5)
@@ -629,9 +632,7 @@ menu_contexto.add_command(label="Excluir", command=excluir_ordem)
 
 tabela.bind("<Button-3>", mostrar_menu_contexto)  # Botão direito
 
-menu_contexto = tk.Menu(janela, tearoff=0)
-menu_contexto.add_command(label="Editar", command=carregar_para_edicao)
-menu_contexto.add_command(label="Excluir", command=excluir_ordem)
+
 menu_contexto.add_command(label="Ver Detalhes", command=ver_detalhes)
 menu_contexto.add_command(label="Duplicar Ordem", command=duplicar_ordem)
 
