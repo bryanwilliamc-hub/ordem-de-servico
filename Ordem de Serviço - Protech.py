@@ -157,27 +157,44 @@ def limpar_campos():
 
 
 def atualizar_tabela(lista):
+    # Limpa a tabela atual
     tabela.delete(*tabela.get_children())
-    for i, ordem in enumerate(lista, start=1):
-        dias_diferenca = (ordem["data_entrega"] - ordem["data_ordem"]).days
-        tag = "atraso" if dias_diferenca >= 5 else ""
-        lucro = ordem["valor_total"] - ordem["custo"]
-        zebra = "par" if i % 2 == 0 else "impar"
+
+    # Insere os dados da lista fornecida
+    for ordem in lista:
         tabela.insert("", "end", values=(
-            i,
+            ordem["id"],
             ordem["modelo"],
             ordem["descricao"],
             ordem["tipo"],
-            f"R${ordem['custo']:.2f}",
-            f"R${ordem['valor_total']:.2f}",
-            f"R${lucro:.2f}",
+            f'R${ordem["custo"]:.2f}',
+            f'R${ordem["valor_total"]:.2f}',
+            f'R${ordem["lucro"]:.2f}',
             ordem["data_ordem"].strftime("%d/%m/%Y"),
             ordem["data_entrega"].strftime("%d/%m/%Y"),
             ordem["cliente"],
-            ordem["telefone"]
-        ), tags=(tag, zebra))
+            ordem["telefone"],
+            f'R${ordem["valor_pago"]:.2f}'
+        ))
 
 
+def filtrar_por_dia():
+    try:
+        data_selecionada = datetime.strptime(entrada_data_filtro.get(), "%d/%m/%Y").date()
+        filtradas = [o for o in ordens_servico if o["data_ordem"].date() == data_selecionada]
+        atualizar_tabela(filtradas)
+
+        total_custo = sum(o["custo"] for o in filtradas)
+        total_valor_total = sum(o["valor_total"] for o in filtradas)
+        balanco = total_valor_total - total_custo
+
+        messagebox.showinfo("Resumo do Dia", f"Data: {data_selecionada.strftime('%d/%m/%Y')}\n"
+                                             f"Ordens: {len(filtradas)}\n"
+                                             f"Valor Total: R${total_valor_total:.2f}\n"
+                                             f"Custo: R${total_custo:.2f}\n"
+                                             f"Balanço: R${balanco:.2f}")
+    except ValueError:
+        messagebox.showerror("Erro", "Selecione uma data válida.")
 
 
 # Cores alternadas
@@ -598,12 +615,30 @@ tk.Button(frame_botoes, text="Limpar Campos", command=limpar_campos, width=20, *
 frame_filtro = tk.Frame(janela, bg="#f2f2f2")
 frame_filtro.pack(pady=10)
 
+# Botões de filtro por período
 tk.Label(frame_filtro, text="Filtrar por Período (DD/MM/AAAA):", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=0, column=0, padx=5)
 entrada_inicio = tk.Entry(frame_filtro, width=15, font=("Segoe UI", 10))
 entrada_inicio.grid(row=0, column=1)
 entrada_fim = tk.Entry(frame_filtro, width=15, font=("Segoe UI", 10))
 entrada_fim.grid(row=0, column=2)
 tk.Button(frame_filtro, text="Filtrar e Mostrar Resumo", command=filtrar_periodo, width=25, **botao_padrao).grid(row=0, column=3, padx=5)
+
+# Filtro por data específica
+tk.Label(frame_filtro, text="Filtrar por Data da Ordem:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=1, column=0, padx=5, pady=5)
+
+entrada_data_filtro = DateEntry(frame_filtro, font=("Segoe UI", 10), date_pattern="dd/mm/yyyy", width=15)
+entrada_data_filtro.grid(row=1, column=1, padx=5)
+
+btn_filtrar_data = tk.Button(
+    frame_filtro,
+    text="Filtrar por Dia",
+    command=filtrar_por_dia,
+    bg="#0275d8",
+    fg="white",
+    font=("Segoe UI", 10, "bold"),
+    width=20
+)
+btn_filtrar_data.grid(row=1, column=2, padx=5)
 
 # Tabela
 colunas = ("ID", "modelo", "Descrição", "tipo", "custo", "valor total", "Valor Lucro", "Data Ordem", "Data Entrega", "cliente", "telefone")
