@@ -102,6 +102,7 @@ def adicionar_ordem():
 
     try:
         ordem = {
+            "id": gerar_id(),
             "modelo": entrada_modelo.get(),
             "descricao": entrada_descricao.get("1.0", tk.END).strip(),
             "tipo": entrada_tipo.get(),
@@ -236,7 +237,7 @@ def salvar_como_csv():
     )
     if caminho:
         with open(caminho, "w", newline="", encoding="utf-8") as f:
-            campos = ["modelo", "descricao", "tipo", "custo", "valor_total", "data_ordem", "data_entrega", "cliente", "telefone"]
+            campos = ["modelo","modelo", "descricao", "tipo", "custo", "valor_total", "data_ordem", "data_entrega", "cliente", "telefone"]
             writer = csv.DictWriter(f, fieldnames=campos)
             writer.writeheader()
             for o in ordens_servico:
@@ -265,15 +266,19 @@ def carregar_csv():
             for linha in leitor:
                 try:
                     ordem = {
-                        "modelo": linha.get("modelo", ""),
-                        "descricao": linha.get("descricao", ""),
-                        "tipo": linha.get("tipo", ""),
-                        "custo": float(linha.get("custo", 0)),
-                        "valor_total": float(linha.get("valor_total", 0)),
-                        "data_ordem": datetime.strptime(linha.get("data_ordem", "01/01/2000"), "%d/%m/%Y"),
-                        "data_entrega": datetime.strptime(linha.get("data_entrega", "01/01/2000"), "%d/%m/%Y"),
-                        "cliente": linha.get("cliente", ""),     # ← garante que existe
-                        "telefone": linha.get("telefone", "")    # ← garante que existe
+                        "id": int(linha.get("ID", 0) or 0),
+                        "modelo": linha.get("Modelo", ""),
+                        "descricao": linha.get("Descrição", ""),
+                        "tipo": linha.get("Tipo", ""),
+                        "custo": float(linha.get("Custo", 0)),
+                        "valor_total": float(linha.get("Valor Total", 0)),
+                        "lucro": float(linha.get("Lucro", 0)),
+                        "data_ordem": datetime.strptime(linha.get("Data da Ordem", ""), "%d/%m/%Y").date() if linha.get("Data da Ordem") else date.today(),
+                        "data_entrega": datetime.strptime(linha.get("Data de Entrega", ""), "%d/%m/%Y").date() if linha.get("Data de Entrega") else date.today(),
+                        "cliente": linha.get("Cliente", ""),
+                        "telefone": linha.get("Telefone", ""),
+                        "valor_pago": float(linha.get("Valor Pago", 0))
+
                     }
                     ordens_servico.append(ordem)
                 except Exception as e:
@@ -574,18 +579,13 @@ tk.Label(frame_entrada, text="Custo (R$):", bg="#f2f2f2", font=("Segoe UI", 10, 
 entrada_custo = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
 entrada_custo.grid(row=1, column=1)
 
-tk.Label(frame_entrada, text="valor total (R$):", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=1, column=2, padx=5)
+tk.Label(frame_entrada, text="Data da Ordem:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=2, column=0, sticky="w", padx=5, pady=2)
+entrada_data_ordem = tk.Entry(frame_entrada, font=("Segoe UI", 10), width=20)
+entrada_data_ordem.grid(row=2, column=1, padx=5, pady=2)
+
+tk.Label(frame_entrada, text="Valor Total (R$):", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=1, column=2, padx=5)
 entrada_valor_total = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
 entrada_valor_total.grid(row=1, column=3)
-
-tk.Label(frame_entrada, text="Data da Ordem:", font=("Arial", 10)).grid(row=7, column=0, sticky="w", padx=5, pady=2)
-entrada_data_ordem = DateEntry(frame_entrada, font=("Arial", 10), date_pattern="dd/mm/yyyy", width=15, background="white", foreground="black", borderwidth=2)
-entrada_data_ordem.grid(row=7, column=1, padx=5, pady=2)
-
-btn_hoje = tk.Button(frame_entrada, text="Hoje", font=("Arial", 9), bg="#5cb85c", fg="white",
-command=lambda: entrada_data_ordem.set_date(datetime.today()))
-btn_hoje.grid(row=7, column=2, padx=5)
-
 
 tk.Label(frame_entrada, text="Data Entrega:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=2, column=2, padx=5)
 entrada_data_entrega = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
