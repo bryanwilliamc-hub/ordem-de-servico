@@ -81,37 +81,42 @@ if __name__ == "__main__":
 
 ordens_servico = []     
 
+def gerar_id():
+    if not ordens_servico:
+        return 1
+    else:
+        return max(ordem.get("id", 0) for ordem in ordens_servico if "id" in ordem) + 1
+
 #FUNÇÕES PRINCIPAIS
 def adicionar_ordem():
-    campos = [
-        entrada_modelo, entrada_descricao, entrada_tipo,
-        entrada_custo, entrada_valor_total,
-        entrada_data_ordem, entrada_data_entrega,
-        entrada_cliente, entrada_telefone
-    ]
-    nomes_campos = [
-        "modelo", "Descrição", "tipo", "custo", "valor total",
-        "Data da Ordem", "Data de Entrega", "cliente", "telefone"
-    ]
+    campos = [entrada_modelo, entrada_descricao, entrada_tipo, entrada_custo, entrada_valor_total,
+              entrada_data_ordem, entrada_data_entrega, entrada_cliente, entrada_telefone]
+    nomes_campos = ["modelo", "Descrição", "tipo", "custo", "valor total", "Data da Ordem",
+                    "Data de Entrega", "cliente", "telefone"]
     campos_invalidos = validar_campos(campos, nomes_campos)
-
     if campos_invalidos:
         lista = "\n- " + "\n- ".join(campos_invalidos)
         messagebox.showerror("Campos obrigatórios", f"Preencha os seguintes campos:\n{lista}")
         return
 
     try:
+        custo = float(entrada_custo.get())
+        valor_total = float(entrada_valor_total.get())
+        lucro = valor_total - custo
+
         ordem = {
             "id": gerar_id(),
             "modelo": entrada_modelo.get(),
             "descricao": entrada_descricao.get("1.0", tk.END).strip(),
             "tipo": entrada_tipo.get(),
-            "custo": float(entrada_custo.get()),
-            "valor_total": float(entrada_valor_total.get()),
+            "custo": custo,
+            "valor_total": valor_total,
+            "lucro": lucro,
             "data_ordem": datetime.strptime(entrada_data_ordem.get(), "%d/%m/%Y"),
             "data_entrega": datetime.strptime(entrada_data_entrega.get(), "%d/%m/%Y"),
             "cliente": entrada_cliente.get(),
-            "telefone": entrada_telefone.get()
+            "telefone": entrada_telefone.get(),
+            "valor_pago": 0.0  # ou entrada_valor_pago.get() se você tiver esse campo
         }
 
         ordens_servico.append(ordem)
@@ -170,7 +175,7 @@ def atualizar_tabela(lista):
             ordem["tipo"],
             f'R${ordem["custo"]:.2f}',
             f'R${ordem["valor_total"]:.2f}',
-            f'R${ordem["lucro"]:.2f}',
+            f'R${ordem.get("lucro", 0):.2f}',
             ordem["data_ordem"].strftime("%d/%m/%Y"),
             ordem["data_entrega"].strftime("%d/%m/%Y"),
             ordem["cliente"],
@@ -182,7 +187,7 @@ def atualizar_tabela(lista):
 def filtrar_por_dia():
     try:
         data_selecionada = datetime.strptime(entrada_data_filtro.get(), "%d/%m/%Y").date()
-        filtradas = [o for o in ordens_servico if o["data_ordem"].date() == data_selecionada]
+        filtradas = [o for o in ordens_servico if o["data_ordem"] == data_selecionada]
         atualizar_tabela(filtradas)
 
         total_custo = sum(o["custo"] for o in filtradas)
@@ -212,11 +217,13 @@ def calcular_balanco():
 
 def salvar_csv():
     with open("ordens_servico.csv", "w", newline="", encoding="utf-8") as f:
-        campos = ["modelo", "descricao", "tipo", "custo", "valor_total", "data_ordem", "data_entrega", "cliente", "telefone"]
+        campos = ["ID", "modelo", "descricao", "tipo", "custo", "valor_total", "lucro",
+                   "data_ordem", "data_entrega", "cliente", "telefone", "valor_pago"]
         writer = csv.DictWriter(f, fieldnames=campos)
         writer.writeheader()
         for o in ordens_servico:
             writer.writerow({
+                "ID": o["id"],
                 "modelo": o["modelo"],
                 "descricao": o["descricao"],
                 "tipo": o["tipo"],
@@ -272,7 +279,7 @@ def carregar_csv():
                         "tipo": linha.get("Tipo", ""),
                         "custo": float(linha.get("Custo", 0)),
                         "valor_total": float(linha.get("Valor Total", 0)),
-                        "lucro": float(linha.get("Lucro", 0)),
+                        "lucro": float(linha.get("Lucro", 0) or 0),
                         "data_ordem": datetime.strptime(linha.get("Data da Ordem", ""), "%d/%m/%Y").date() if linha.get("Data da Ordem") else date.today(),
                         "data_entrega": datetime.strptime(linha.get("Data de Entrega", ""), "%d/%m/%Y").date() if linha.get("Data de Entrega") else date.today(),
                         "cliente": linha.get("Cliente", ""),
@@ -343,14 +350,22 @@ def carregar_para_edicao(event=None):
 
 
 def excluir_ordem():
-    selecionado = tabela.focus()
+    selecionado = tabela.selection()
     if not selecionado:
+        messagebox.showwarning("Seleção necessária", "Selecione uma ordem para excluir.")
         return
-    index = int(tabela.item(selecionado, "values")[0]) - 1
-    resposta = messagebox.askyesno("Confirmar", "Deseja realmente excluir esta ordem?")
-    if resposta:
-        del ordens_servico[index]
-        atualizar_tabela(ordens_servico)
+
+    resposta = messagebox.askyesno("Confirmar exclusão", "Tem certeza que deseja excluir esta ordem?")
+    if not resposta:
+        return
+
+    item = tabela.item(selecionado[0])
+    valores = item["values"]
+    id_selecionado = int(valores[0])  # o ID está na primeira coluna
+
+    # Remove da lista usando o ID
+    ordens_servico[:] = [o for o in ordens_servico if o["id"] != id_selecionado]
+    atualizar_tabela(ordens_servico)
 
 def salvar_edicao():
     selecionado = tabela.focus()
@@ -367,16 +382,20 @@ def salvar_edicao():
         indice = int(valores[0]) - 1  # ID da ordem na tabela
 
         ordem = {
+            "id": int(valores[0]),  # mantém o ID original
             "modelo": entrada_modelo.get(),
             "descricao": entrada_descricao.get("1.0", tk.END).strip(),
             "tipo": entrada_tipo.get(),
             "custo": float(entrada_custo.get()),
             "valor_total": float(entrada_valor_total.get()),
+            "lucro": float(entrada_valor_total.get()) - float(entrada_custo.get()),
             "data_ordem": datetime.strptime(entrada_data_ordem.get(), "%d/%m/%Y"),
             "data_entrega": datetime.strptime(entrada_data_entrega.get(), "%d/%m/%Y"),
             "cliente": entrada_cliente.get(),
-            "telefone": entrada_telefone.get()
+            "telefone": entrada_telefone.get(),
+            "valor_pago": 0.0
         }
+
 
         ordens_servico[indice] = ordem  # ← substitui a ordem existente
         atualizar_tabela(ordens_servico)
@@ -501,6 +520,7 @@ def duplicar_ordem():
 
     try:
         nova_ordem = {
+            "id": gerar_id(),
             "modelo": valores[1],
             "descricao": valores[2],
             "tipo": valores[3],
