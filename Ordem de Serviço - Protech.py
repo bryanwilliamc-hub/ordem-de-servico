@@ -116,8 +116,7 @@ def adicionar_ordem():
             "data_entrega": datetime.strptime(entrada_data_entrega.get(), "%d/%m/%Y"),
             "cliente": entrada_cliente.get(),
             "telefone": entrada_telefone.get(),
-            "valor_pago": 0.0  # ou entrada_valor_pago.get() se você tiver esse campo
-        }
+         }
 
         ordens_servico.append(ordem)
         atualizar_tabela(ordens_servico)
@@ -180,7 +179,6 @@ def atualizar_tabela(lista):
             ordem["data_entrega"].strftime("%d/%m/%Y"),
             ordem["cliente"],
             ordem["telefone"],
-            f'R${ordem["valor_pago"]:.2f}'
         ))
 
 
@@ -216,25 +214,57 @@ def calcular_balanco():
 
 
 def salvar_csv():
-    with open("ordens_servico.csv", "w", newline="", encoding="utf-8") as f:
-        campos = ["ID", "modelo", "descricao", "tipo", "custo", "valor_total", "lucro",
-                   "data_ordem", "data_entrega", "cliente", "telefone", "valor_pago"]
-        writer = csv.DictWriter(f, fieldnames=campos)
-        writer.writeheader()
-        for o in ordens_servico:
-            writer.writerow({
-                "ID": o["id"],
-                "modelo": o["modelo"],
-                "descricao": o["descricao"],
-                "tipo": o["tipo"],
-                "custo": o["custo"],
-                "valor_total": o["valor_total"],
-                "data_ordem": o["data_ordem"].strftime("%d/%m/%Y"),
-                "data_entrega": o["data_entrega"].strftime("%d/%m/%Y"),
-                "cliente": o["cliente"],
-                "telefone": o["telefone"]
-            })
-    messagebox.showinfo("Salvo", "Dados salvos em 'ordens_servico.csv'.")
+    if not ordens_servico:
+        messagebox.showwarning("Nenhuma ordem", "Não há ordens para salvar.")
+        return
+
+    resposta = messagebox.askyesnocancel(
+        "Salvar CSV",
+        "Deseja sobrescrever o arquivo atual?\n\nSim: sobrescrever\nNão: salvar como novo\nCancelar: abortar"
+    )
+
+    if resposta is None:
+        return  # Cancelado
+
+    if resposta:  # Sim → sobrescrever
+        caminho = filedialog.askopenfilename(
+            defaultextension=".csv",
+            filetypes=[("Arquivos CSV", "*.csv")],
+            title="Selecione o arquivo para sobrescrever"
+        )
+    else:  # Não → salvar como novo
+        caminho = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("Arquivos CSV", "*.csv")],
+            title="Salvar como novo arquivo"
+        )
+
+    if not caminho:
+        return  # Usuário cancelou o diálogo
+
+    try:
+        with open(caminho, "w", newline="", encoding="utf-8") as arquivo:
+            campos = ["ID", "modelo", "descricao", "tipo", "custo", "valor_total", "lucro",
+                      "data_ordem", "data_entrega", "cliente", "telefone", ]
+            escritor = csv.DictWriter(arquivo, fieldnames=campos)
+            escritor.writeheader()
+            for o in ordens_servico:
+                escritor.writerow({
+                    "ID": o["id"],
+                    "modelo": o["modelo"],
+                    "descricao": o["descricao"],
+                    "tipo": o["tipo"],
+                    "custo": o["custo"],
+                    "valor_total": o["valor_total"],
+                    "lucro": o["lucro"],
+                    "data_ordem": o["data_ordem"].strftime("%d/%m/%Y"),
+                    "data_entrega": o["data_entrega"].strftime("%d/%m/%Y"),
+                    "cliente": o["cliente"],
+                    "telefone": o["telefone"],                  
+                })
+        messagebox.showinfo("Sucesso", "Arquivo CSV salvo com sucesso.")
+    except Exception as e:
+        messagebox.showerror("Erro ao salvar", f"Ocorreu um erro:\n{e}")
 
 def salvar_como_csv():
     caminho = filedialog.asksaveasfilename(
@@ -273,32 +303,25 @@ def carregar_csv():
             for linha in leitor:
                 try:
                     ordem = {
-                        "id": int(linha.get("ID", 0) or 0),
-                        "modelo": linha.get("Modelo", ""),
-                        "descricao": linha.get("Descrição", ""),
-                        "tipo": linha.get("Tipo", ""),
-                        "custo": float(linha.get("Custo", 0)),
-                        "valor_total": float(linha.get("Valor Total", 0)),
-                        "lucro": float(linha.get("Lucro", 0) or 0),
-                        "data_ordem": datetime.strptime(linha.get("Data da Ordem", ""), "%d/%m/%Y").date() if linha.get("Data da Ordem") else date.today(),
-                        "data_entrega": datetime.strptime(linha.get("Data de Entrega", ""), "%d/%m/%Y").date() if linha.get("Data de Entrega") else date.today(),
-                        "cliente": linha.get("Cliente", ""),
-                        "telefone": linha.get("Telefone", ""),
-                        "valor_pago": float(linha.get("Valor Pago", 0))
-
+                        "id": int(linha.get("ID") or linha.get("id") or 0),
+                        "modelo": linha.get("modelo", ""),
+                        "descricao": linha.get("descricao", ""),
+                        "tipo": linha.get("tipo", ""),
+                        "custo": float(linha.get("custo", 0) or 0),
+                        "valor_total": float(linha.get("valor_total", 0) or 0),
+                        "lucro": float(linha.get("lucro", 0) or 0),
+                        "data_ordem": datetime.strptime(linha.get("data_ordem", ""), "%d/%m/%Y"),
+                        "data_entrega": datetime.strptime(linha.get("data_entrega", ""), "%d/%m/%Y"),
+                        "cliente": linha.get("cliente", ""),
+                        "telefone": linha.get("telefone", ""),
                     }
                     ordens_servico.append(ordem)
                 except Exception as e:
-                    print(f"Erro ao processar linha: {e}")
+                    print(f"Erro ao carregar linha: {linha}\n{e}")
         atualizar_tabela(ordens_servico)
-        messagebox.showinfo("Sucesso", "CSV carregado com sucesso.")
+        messagebox.showinfo("Sucesso", "Arquivo CSV carregado com sucesso.")
     except Exception as e:
-        messagebox.showerror("Erro", f"Erro ao carregar CSV: {e}")
-
-        atualizar_tabela(ordens_servico)
-        messagebox.showinfo("Carregado", "Dados carregados com sucesso!")
-    except FileNotFoundError:
-        messagebox.showerror("Erro", "Arquivo não encontrado.")
+        messagebox.showerror("Erro ao carregar", f"Ocorreu um erro:\n{e}")
 
 def filtrar_periodo():
     try:
@@ -392,8 +415,7 @@ def salvar_edicao():
             "data_ordem": datetime.strptime(entrada_data_ordem.get(), "%d/%m/%Y"),
             "data_entrega": datetime.strptime(entrada_data_entrega.get(), "%d/%m/%Y"),
             "cliente": entrada_cliente.get(),
-            "telefone": entrada_telefone.get(),
-            "valor_pago": 0.0
+            "telefone": entrada_telefone.get(),            
         }
 
 
@@ -526,12 +548,13 @@ def duplicar_ordem():
             "tipo": valores[3],
             "custo": float(valores[4].replace("R$", "").replace(",", ".")),
             "valor_total": float(valores[5].replace("R$", "").replace(",", ".")),
+            "lucro": float(valores[5].replace("R$", "").replace(",", ".")) - float(valores[4].replace("R$", "").replace(",", ".")),
             "data_ordem": datetime.strptime(valores[7], "%d/%m/%Y"),
             "data_entrega": datetime.strptime(valores[8], "%d/%m/%Y"),
             "cliente": valores[9] if len(valores) > 9 else "",
             "telefone": valores[10] if len(valores) > 10 else "",
-
         }
+        
         ordens_servico.append(nova_ordem)
         atualizar_tabela(ordens_servico)
         messagebox.showinfo("Duplicado", "Ordem duplicada com sucesso.")
