@@ -112,7 +112,7 @@ def adicionar_ordem():
             "custo": custo,
             "valor_total": valor_total,
             "lucro": lucro,
-            "data_ordem": datetime.strptime(entrada_data_ordem.get(), "%d/%m/%Y"),
+            "data_ordem": datetime.strptime(entrada_data_ordem.get(), "%d/%m/%Y").date(),
             "data_entrega": datetime.strptime(entrada_data_entrega.get(), "%d/%m/%Y"),
             "cliente": entrada_cliente.get(),
             "telefone": entrada_telefone.get(),
@@ -183,23 +183,31 @@ def atualizar_tabela(lista):
 
 
 def filtrar_por_dia():
-    try:
-        data_selecionada = datetime.strptime(entrada_data_filtro.get(), "%d/%m/%Y").date()
-        filtradas = [o for o in ordens_servico if o["data_ordem"] == data_selecionada]
+    data_selecionada = calendario.get_date()
+
+    # Debug: verificar tipos e valores
+    print("Data selecionada:", data_selecionada, type(data_selecionada))
+    for o in ordens_servico:
+        print("Data da ordem:", o["data_ordem"], type(o["data_ordem"]))
+
+    filtradas = [o for o in ordens_servico if o["data_ordem"] == data_selecionada]
+
+    if not filtradas:
+        messagebox.showinfo("Sem resultados", "Nenhuma ordem encontrada para a data selecionada.")
+    else:
         atualizar_tabela(filtradas)
+        try:
+            total_custo = sum(o["custo"] for o in filtradas)
+            total_valor_total = sum(o["valor_total"] for o in filtradas)
+            balanco = total_valor_total - total_custo
 
-        total_custo = sum(o["custo"] for o in filtradas)
-        total_valor_total = sum(o["valor_total"] for o in filtradas)
-        balanco = total_valor_total - total_custo
-
-        messagebox.showinfo("Resumo do Dia", f"Data: {data_selecionada.strftime('%d/%m/%Y')}\n"
-                                             f"Ordens: {len(filtradas)}\n"
-                                             f"Valor Total: R${total_valor_total:.2f}\n"
-                                             f"Custo: R${total_custo:.2f}\n"
-                                             f"Balanço: R${balanco:.2f}")
-    except ValueError:
-        messagebox.showerror("Erro", "Selecione uma data válida.")
-
+            messagebox.showinfo("Resumo do Dia", f"Data: {data_selecionada.strftime('%d/%m/%Y')}\n"
+                                                 f"Ordens: {len(filtradas)}\n"
+                                                 f"Valor Total: R${total_valor_total:.2f}\n"
+                                                 f"Custo: R${total_custo:.2f}\n"
+                                                 f"Balanço: R${balanco:.2f}")
+        except ValueError:
+            messagebox.showerror("Erro", "Selecione uma data válida.")
 
 # Cores alternadas
     tabela.tag_configure("par", background="#f9f9f9")
@@ -310,7 +318,7 @@ def carregar_csv():
                         "custo": float(linha.get("custo", 0) or 0),
                         "valor_total": float(linha.get("valor_total", 0) or 0),
                         "lucro": float(linha.get("lucro", 0) or 0),
-                        "data_ordem": datetime.strptime(linha.get("data_ordem", ""), "%d/%m/%Y"),
+                        "data_ordem": datetime.strptime(linha.get("data_ordem", ""), "%d/%m/%Y").date(),
                         "data_entrega": datetime.strptime(linha.get("data_entrega", ""), "%d/%m/%Y"),
                         "cliente": linha.get("cliente", ""),
                         "telefone": linha.get("telefone", ""),
@@ -327,7 +335,7 @@ def filtrar_periodo():
     try:
         inicio = datetime.strptime(entrada_inicio.get(), "%d/%m/%Y")
         fim = datetime.strptime(entrada_fim.get(), "%d/%m/%Y")
-        filtradas = [o for o in ordens_servico if inicio <= o["data_ordem"] <= fim]
+        filtradas = [o for o in ordens_servico if o["data_ordem"] == data_selecionada]
         atualizar_tabela(filtradas)
         total_custo = sum(o["custo"] for o in filtradas)
         total_valor_total = sum(o["valor_total"] for o in filtradas)
@@ -412,7 +420,7 @@ def salvar_edicao():
             "custo": float(entrada_custo.get()),
             "valor_total": float(entrada_valor_total.get()),
             "lucro": float(entrada_valor_total.get()) - float(entrada_custo.get()),
-            "data_ordem": datetime.strptime(entrada_data_ordem.get(), "%d/%m/%Y"),
+            "data_ordem": datetime.strptime(entrada_data_ordem.get(), "%d/%m/%Y").date(),
             "data_entrega": datetime.strptime(entrada_data_entrega.get(), "%d/%m/%Y"),
             "cliente": entrada_cliente.get(),
             "telefone": entrada_telefone.get(),            
@@ -682,6 +690,10 @@ btn_filtrar_data = tk.Button(
     width=20
 )
 btn_filtrar_data.grid(row=1, column=2, padx=5)
+
+calendario = DateEntry(frame_filtro, width=12, background='darkblue', foreground='white',
+                       borderwidth=2, date_pattern='dd/mm/yyyy')
+calendario.grid(row=0, column=0, padx=5, pady=5)
 
 # Tabela
 colunas = ("ID", "modelo", "Descrição", "tipo", "custo", "valor total", "Valor Lucro", "Data Ordem", "Data Entrega", "cliente", "telefone")
