@@ -10,6 +10,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from tkcalendar import DateEntry
 from PIL import Image, ImageTk
+import sys, os
 
 
 def verificar_login(usuario, senha_digitada):
@@ -474,8 +475,17 @@ janela.configure(bg="#f2f2f2")
 frame_topo = tk.Frame(janela, bg="#f0f0f0")
 frame_topo.pack(fill="x", padx=10, pady=10)
 
+# Detecta se está rodando como .exe ou .py
+if getattr(sys, 'frozen', False):
+    caminho_base = sys._MEIPASS
+else:
+    caminho_base = os.path.dirname(__file__)
+
+# Caminho seguro para o logo
+caminho_logo = os.path.join(caminho_base, "logo.png")
+
 # Logo
-imagem_logo = Image.open("logo.png")
+imagem_logo = Image.open(caminho_logo)
 imagem_logo = imagem_logo.resize((100, 100))
 logo_tk = ImageTk.PhotoImage(imagem_logo)
 
@@ -487,15 +497,6 @@ label_logo.pack(side="left")
 label_titulo = tk.Label(frame_topo, text="Sistema de Ordem de Serviço", font=("Arial", 20, "bold"), bg="#f0f0f0", fg="#333")
 label_titulo.pack(side="left", padx=20)
 
-# 3. Tabela de ordens de serviço
-frame_tabela = tk.Frame(janela, bg="#ffffff")
-frame_tabela.pack(fill="both", expand=True, padx=10, pady=10)
-tabela = ttk.Treeview(frame_tabela, columns=colunas, show="headings")
-tabela.pack(fill="both", expand=True)
-
-for coluna in colunas:
-    tabela.heading(coluna, text=coluna)
-    tabela.column(coluna, anchor="center", stretch=True)
 
 # Estilo visual
 estilo = ttk.Style()
@@ -665,11 +666,13 @@ entrada_modelo = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
 entrada_modelo.grid(row=0, column=1)    
 
 tk.Label(frame_entrada, text="Descrição:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=0, column=4, padx=5)
-entrada_descricao = tk.Text(frame_entrada, width=40, height=5, font=("Segoe UI", 10))
-entrada_descricao.grid(row=0, column=5, rowspan=5, pady=5)
+entrada_descricao = tk.Text(frame_entrada, width=40, height=1, font=("Segoe UI", 10))
+entrada_descricao.grid(row=0, column=5, rowspan=1, pady=5)
 
 frame_botoes_descricao = tk.Frame(frame_entrada, bg="#f2f2f2")
 frame_botoes_descricao.grid(row=5, column=5, pady=(0, 10), sticky="e")
+
+
 
 tk.Label(frame_entrada, text="Tipo:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=0, column=2, padx=5)
 entrada_tipo = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
