@@ -9,6 +9,8 @@ import tempfile
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from tkcalendar import DateEntry
+from PIL import Image, ImageTk
+
 
 def verificar_login(usuario, senha_digitada):
     try:
@@ -183,7 +185,7 @@ def atualizar_tabela(lista):
 
 
 def filtrar_por_dia():
-    data_selecionada = calendario.get_date()
+    data_selecionada = entrada_data_filtro.get_date()
 
     # Debug: verificar tipos e valores
     print("Data selecionada:", data_selecionada, type(data_selecionada))
@@ -213,6 +215,13 @@ def filtrar_por_dia():
     tabela.tag_configure("par", background="#f9f9f9")
     tabela.tag_configure("impar", background="#ffffff")
 
+def limpar_filtro():
+    if not ordens_servico:
+        messagebox.showinfo("Sem dados", "Nenhuma ordem foi carregada ainda.")
+        return
+
+    atualizar_tabela(ordens_servico)
+    messagebox.showinfo("Filtro removido", "Todas as ordens estão sendo exibidas.")
 
 def calcular_balanco():
     total_custo = sum(o["custo"] for o in ordens_servico)
@@ -333,16 +342,27 @@ def carregar_csv():
 
 def filtrar_periodo():
     try:
-        inicio = datetime.strptime(entrada_inicio.get(), "%d/%m/%Y")
-        fim = datetime.strptime(entrada_fim.get(), "%d/%m/%Y")
-        filtradas = [o for o in ordens_servico if o["data_ordem"] == data_selecionada]
-        atualizar_tabela(filtradas)
-        total_custo = sum(o["custo"] for o in filtradas)
-        total_valor_total = sum(o["valor_total"] for o in filtradas)
-        balanco = total_valor_total - total_custo
-        messagebox.showinfo("Resumo do Período", f"Valor Total: R${total_valor_total:.2f}\nCusto: R${total_custo:.2f}\nBalanço: R${balanco:.2f}")
+        data_inicio = datetime.strptime(entrada_inicio.get(), "%d/%m/%Y").date()
+        data_fim = datetime.strptime(entrada_fim.get(), "%d/%m/%Y").date()
+
+        filtradas = [o for o in ordens_servico if data_inicio <= o["data_ordem"] <= data_fim]
+
+        if not filtradas:
+            messagebox.showinfo("Sem resultados", "Nenhuma ordem encontrada no período selecionado.")
+        else:
+            atualizar_tabela(filtradas)
+
+            total_custo = sum(o["custo"] for o in filtradas)
+            total_valor_total = sum(o["valor_total"] for o in filtradas)
+            balanco = total_valor_total - total_custo
+
+            messagebox.showinfo("Resumo do Período", f"De {data_inicio.strftime('%d/%m/%Y')} até {data_fim.strftime('%d/%m/%Y')}\n"
+                                                      f"Ordens: {len(filtradas)}\n"
+                                                      f"Valor Total: R${total_valor_total:.2f}\n"
+                                                      f"Custo: R${total_custo:.2f}\n"
+                                                      f"Balanço: R${balanco:.2f}")
     except ValueError:
-        messagebox.showerror("Erro", "Use datas no formato DD/MM/AAAA.")
+        messagebox.showerror("Erro", "Insira datas válidas no formato DD/MM/AAAA.")
 
 def carregar_para_edicao(event=None):
     selecionado = tabela.focus()
@@ -450,6 +470,33 @@ janela.title("Sistema de Ordem de Serviço")
 janela.geometry("1100x700")
 janela.configure(bg="#f2f2f2")
 
+# Frame do topo com logo e título
+frame_topo = tk.Frame(janela, bg="#f0f0f0")
+frame_topo.pack(fill="x", padx=10, pady=10)
+
+# Logo
+imagem_logo = Image.open("logo.png")
+imagem_logo = imagem_logo.resize((100, 100))
+logo_tk = ImageTk.PhotoImage(imagem_logo)
+
+label_logo = tk.Label(frame_topo, image=logo_tk, bg="#f0f0f0")
+label_logo.image = logo_tk
+label_logo.pack(side="left")
+
+# Título
+label_titulo = tk.Label(frame_topo, text="Sistema de Ordem de Serviço", font=("Arial", 20, "bold"), bg="#f0f0f0", fg="#333")
+label_titulo.pack(side="left", padx=20)
+
+# 3. Tabela de ordens de serviço
+frame_tabela = tk.Frame(janela, bg="#ffffff")
+frame_tabela.pack(fill="both", expand=True, padx=10, pady=10)
+tabela = ttk.Treeview(frame_tabela, columns=colunas, show="headings")
+tabela.pack(fill="both", expand=True)
+
+for coluna in colunas:
+    tabela.heading(coluna, text=coluna)
+    tabela.column(coluna, anchor="center", stretch=True)
+
 # Estilo visual
 estilo = ttk.Style()
 estilo.theme_use("default")
@@ -490,12 +537,10 @@ def ver_detalhes():
         ("Modelo", valores[1]),
         ("Descrição", valores[2]),
         ("Tipo", valores[3]),
-        ("Custo", valores[4]),
         ("Valor Total", valores[5]),
-        ("Lucro", valores[6]),
         ("Data da Ordem", valores[7]),
         ("Data de Entrega", valores[8])
-    ]
+]
 
     for label, valor in campos:
         frame = tk.Frame(janela_detalhes, bg="#f0f0f0")
@@ -507,6 +552,10 @@ def ver_detalhes():
     tk.Label(janela_detalhes, text="", bg="#f0f0f0").pack(pady=10)
     tk.Frame(janela_detalhes, height=2, bg="black").pack(fill="x", padx=60, pady=(10, 2))
     tk.Label(janela_detalhes, text="Assinatura do cliente", font=("Arial", 10, "italic"), bg="#f0f0f0").pack(pady=(0, 20))
+
+    # Linha de assinatura do executor
+    tk.Frame(janela_detalhes, height=2, bg="black").pack(fill="x", padx=60, pady=(10, 2))
+    tk.Label(janela_detalhes, text="Assinatura do executor", font=("Arial", 10, "italic"), bg="#f0f0f0").pack(pady=(0, 20))
 
     # Funções internas para exportar os dados
     def imprimir_detalhes():
@@ -691,9 +740,16 @@ btn_filtrar_data = tk.Button(
 )
 btn_filtrar_data.grid(row=1, column=2, padx=5)
 
-calendario = DateEntry(frame_filtro, width=12, background='darkblue', foreground='white',
-                       borderwidth=2, date_pattern='dd/mm/yyyy')
-calendario.grid(row=0, column=0, padx=5, pady=5)
+btn_limpar_filtro = tk.Button(
+    frame_filtro,
+    text="Limpar Filtro",
+    command=limpar_filtro,
+    bg="#5cb85c",
+    fg="white",
+    font=("Segoe UI", 10, "bold"),
+    width=20
+)
+btn_limpar_filtro.grid(row=1, column=3, padx=5)
 
 # Tabela
 colunas = ("ID", "modelo", "Descrição", "tipo", "custo", "valor total", "Valor Lucro", "Data Ordem", "Data Entrega", "cliente", "telefone")
