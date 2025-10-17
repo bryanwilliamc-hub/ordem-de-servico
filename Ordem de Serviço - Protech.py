@@ -208,7 +208,9 @@ def atualizar_tabela(lista):
             data_entrega_str,
             ordem.get("cliente", ""),
             ordem.get("telefone", ""),
-            ordem.get("servicos", "")) )
+            ordem.get("servicos", "")
+        ))
+
 
 def filtrar_por_dia():
     data_selecionada = entrada_data_filtro.get_date()
@@ -1113,19 +1115,21 @@ btn_limpar_filtro = tk.Button(
 btn_limpar_filtro.grid(row=1, column=3, padx=5)
 
 # Tabela
-colunas = ("ID", "modelo", "Descrição", "tipo", "custo", "valor total", "Valor Lucro", "Data Ordem", "Data Entrega", "cliente", "telefone")
+colunas = ("ID", "modelo", "Descriçao", "tipo", "custo", "valor total", "Valor Lucro", "Data Ordem", "Data Entrega", "cliente", "telefone", "servicos")
 tabela = ttk.Treeview(janela, columns=colunas, show="headings", height=20)
 tabela.tag_configure("atraso", background="#ffcccc")  # vermelho claro para entregas com atraso
 
 for col in colunas:
     tabela.heading(col, text=col)
     if col == "Descrição":
-        tabela.column(col, width=200)
+        tabela.column(col, width=100)
     elif col =="Valor Lucro":
-        tabela.column(col, width=120)
+        tabela.column(col, width=80)
     elif col == "cliente":
-        tabela.column(col, width=150)
+        tabela.column(col, width=100)
     elif col == "telefone":
+        tabela.column(col, width=120)
+    elif col == "servicos":
         tabela.column(col, width=120)
     else:
         tabela.column(col, width=110)
