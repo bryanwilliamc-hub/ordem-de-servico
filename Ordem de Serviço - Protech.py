@@ -726,6 +726,7 @@ tk.Button(janela, text="Alternar Tema", command=alternar_tema, width=20, bg="#33
 
 # Função para abrir o popup
 def abrir_popup_servicos():
+    global entrada_valor_total
     popup = tk.Toplevel(janela)
     popup.title("Selecionar Serviços Prestados")
     popup.geometry("400x400")
@@ -734,32 +735,30 @@ def abrir_popup_servicos():
     vars_popup = []
     for servico in servicos_cadastrados:
         texto = f"{servico['nome']} - R$ {servico['valor']}"
-        var = tk.BooleanVar(value=texto in servicos_selecionados)
+        var = tk.BooleanVar()
         chk = tk.Checkbutton(popup, text=texto, variable=var, bg="#f2f2f2", font=("Segoe UI", 10), anchor="w")
         chk.pack(anchor="w", padx=20, pady=2)
         vars_popup.append((servico, var))
 
-def confirmar():
-    servicos_selecionados.clear()
-    total = 0.0
-    textos = []
-    for servico, var in vars_popup:
-        if var.get():
-            textos.append(f"{servico['nome']} - R$ {servico['valor']}")
-            try:
-                total += float(servico['valor'].replace(",", "."))
-            except ValueError:
-                pass
+    def confirmar():
+        servicos_selecionados.clear()
+        total = 0.0
+        textos = []
+        for servico, var in vars_popup:
+            if var.get():
+                textos.append(f"{servico['nome']} - R$ {servico['valor']}")
+                try:
+                    total += float(servico['valor'].replace(",", "."))
+                except ValueError:
+                    pass
+        campo_servicos_var.set(", ".join(textos))
+        entrada_valor_total.delete(0, tk.END)
+        entrada_valor_total.insert(0, f"R$ {total:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        popup.destroy()
 
-    campo_servicos_var.set(", ".join(textos))
-
-    # Atualiza diretamente o campo de entrada existente
-    entrada_valor_total.delete(0, tk.END)
-    entrada_valor_total.insert(0, f"R$ {total:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-
-    popup.destroy()
-
-
+    # ✅ Botão "Confirmar" dentro da função, onde popup existe
+    btn_confirmar = tk.Button(popup, text="Confirmar", command=confirmar, font=("Segoe UI", 10, "bold"), bg="#4CAF50", fg="white")
+    btn_confirmar.pack(pady=10)
 
 # Frame de entrada
 frame_entrada = tk.Frame(janela, bg="#f2f2f2")
@@ -812,6 +811,7 @@ entrada_data_ordem = tk.Entry(frame_entrada, font=("Segoe UI", 10), width=20)
 entrada_data_ordem.grid(row=2, column=1, padx=5, pady=2)
 
 tk.Label(frame_entrada, text="Valor Total (R$):", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=1, column=2, padx=5)
+global entrada_valor_total
 entrada_valor_total = tk.Entry(frame_entrada, textvariable=campo_valor_total_var, width=20, font=("Segoe UI", 10), state="readonly")
 entrada_valor_total.grid(row=1, column=3)
 
