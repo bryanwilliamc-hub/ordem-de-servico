@@ -128,26 +128,6 @@ def adicionar_ordem():
     except ValueError:
         messagebox.showerror("Erro", "Verifique os valores numéricos e datas.")
 
-
-def abrir_janela_parametrizacao():
-    popup = tk.Toplevel(janela)
-    popup.title("Cadastro de Serviços e Valores")
-    popup.geometry("400x300")
-    popup.configure(bg="#f2f2f2")
-
-    tk.Label(popup, text="Cadastrar Serviço", font=("Segoe UI", 12, "bold"), bg="#f2f2f2").pack(pady=10)
-
-    tk.Label(popup, text="Nome do Serviço:", font=("Segoe UI", 10), bg="#f2f2f2").pack(anchor="w", padx=20)
-    entrada_nome = tk.Entry(popup, font=("Segoe UI", 10), width=40)
-    entrada_nome.pack(padx=20, pady=5)
-
-    tk.Label(popup, text="Valor (R$):", font=("Segoe UI", 10), bg="#f2f2f2").pack(anchor="w", padx=20)
-    entrada_valor = tk.Entry(popup, font=("Segoe UI", 10), width=20)
-    entrada_valor.pack(padx=20, pady=5)
-
-# Lista global de serviços cadastrados
-servicos_cadastrados = []  # Ex: [{"nome": "Instalação", "valor": "150"}]
-
 def abrir_janela_servicos_cadastrados():
     janela_servicos = tk.Toplevel(janela)
     janela_servicos.title("Serviços Cadastrados")
@@ -167,19 +147,7 @@ def abrir_janela_servicos_cadastrados():
     # Listar serviços
     for i, servico in enumerate(servicos_cadastrados, start=1):
         tk.Label(frame_lista, text=servico["nome"], font=("Segoe UI", 10), bg="#f2f2f2", anchor="w", width=40).grid(row=i, column=0, sticky="w", pady=2)
-        tk.Label(frame_lista, text=servico["valor"], font=("Segoe UI", 10), bg="#f2f2f2", anchor="w", width=20).grid(row=i, column=1, sticky="w", pady=2)
-
-
-    def salvar_servico():
-        nome = entrada_nome.get().strip()
-        valor = entrada_valor.get().strip()
-        if nome and valor:
-            print(f"Serviço cadastrado: {nome} - R$ {valor}")
-            entrada_nome.delete(0, tk.END)
-            entrada_valor.delete(0, tk.END)
-
-    tk.Button(popup, text="Salvar", command=salvar_servico, font=("Segoe UI", 10, "bold"), bg="#4CAF50", fg="white").pack(pady=10)
-    
+        tk.Label(frame_lista, text=servico["valor"], font=("Segoe UI", 10), bg="#f2f2f2", anchor="w", width=20).grid(row=i, column=1, sticky="w", pady=2) 
 
 def validar_campos(campos, nomes_campos):
     campos_invalidos = []   
@@ -524,6 +492,37 @@ janela.title("Sistema de Ordem de Serviço")
 janela.geometry("1100x700")
 janela.configure(bg="#f2f2f2")
 
+# Lista global para armazenar os serviços cadastrados
+
+servicos_cadastrados = []
+
+def abrir_janela_parametrizacao():
+    popup = tk.Toplevel(janela)
+    popup.title("Cadastro de Serviços e Valores")
+    popup.geometry("400x300")
+    popup.configure(bg="#f2f2f2")
+
+    tk.Label(popup, text="Cadastrar Serviço", font=("Segoe UI", 12, "bold"), bg="#f2f2f2").pack(pady=10)
+
+    tk.Label(popup, text="Nome do Serviço:", font=("Segoe UI", 10), bg="#f2f2f2").pack(anchor="w", padx=20)
+    entrada_nome = tk.Entry(popup, font=("Segoe UI", 10), width=40)
+    entrada_nome.pack(padx=20, pady=5)
+
+    tk.Label(popup, text="Valor (R$):", font=("Segoe UI", 10), bg="#f2f2f2").pack(anchor="w", padx=20)
+    entrada_valor = tk.Entry(popup, font=("Segoe UI", 10), width=20)
+    entrada_valor.pack(padx=20, pady=5)
+
+    def salvar_servico():
+        nome = entrada_nome.get().strip()
+        valor = entrada_valor.get().strip()
+        if nome and valor:
+            servicos_cadastrados.append({"nome": nome, "valor": valor})
+            print(f"Serviço cadastrado: {nome} - R$ {valor}")
+            entrada_nome.delete(0, tk.END)
+            entrada_valor.delete(0, tk.END)
+
+    tk.Button(popup, text="Salvar", command=salvar_servico, font=("Segoe UI", 10, "bold"), bg="#4CAF50", fg="white").pack(pady=10)
+
 
 # Barra de menu no topo
 barra_menu = tk.Menu(janela)
@@ -729,26 +728,38 @@ tk.Button(janela, text="Alternar Tema", command=alternar_tema, width=20, bg="#33
 def abrir_popup_servicos():
     popup = tk.Toplevel(janela)
     popup.title("Selecionar Serviços Prestados")
-    popup.geometry("350x250")
+    popup.geometry("400x400")
     popup.configure(bg="#f2f2f2")
 
     vars_popup = []
-    for servico in servicos_disponiveis:
-        var = tk.BooleanVar(value=servico in servicos_selecionados)
-        chk = tk.Checkbutton(popup, text=servico, variable=var, bg="#f2f2f2", font=("Segoe UI", 10), anchor="w")
+    for servico in servicos_cadastrados:
+        texto = f"{servico['nome']} - R$ {servico['valor']}"
+        var = tk.BooleanVar(value=texto in servicos_selecionados)
+        chk = tk.Checkbutton(popup, text=texto, variable=var, bg="#f2f2f2", font=("Segoe UI", 10), anchor="w")
         chk.pack(anchor="w", padx=20, pady=2)
         vars_popup.append((servico, var))
 
-    def confirmar():
-        servicos_selecionados.clear()
-        for servico, var in vars_popup:
-            if var.get():
-                servicos_selecionados.append(servico)
-        campo_servicos_var.set(", ".join(servicos_selecionados))
-        popup.destroy()
+def confirmar():
+    servicos_selecionados.clear()
+    total = 0.0
+    textos = []
+    for servico, var in vars_popup:
+        if var.get():
+            textos.append(f"{servico['nome']} - R$ {servico['valor']}")
+            try:
+                total += float(servico['valor'].replace(",", "."))
+            except ValueError:
+                pass
 
-    btn_confirmar = tk.Button(popup, text="Confirmar", command=confirmar, font=("Segoe UI", 10, "bold"))
-    btn_confirmar.pack(pady=10)
+    campo_servicos_var.set(", ".join(textos))
+
+    # Atualiza diretamente o campo de entrada existente
+    entrada_valor_total.delete(0, tk.END)
+    entrada_valor_total.insert(0, f"R$ {total:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+    popup.destroy()
+
+
 
 # Frame de entrada
 frame_entrada = tk.Frame(janela, bg="#f2f2f2")
@@ -777,14 +788,18 @@ servicos_disponiveis = [
 # Variável para armazenar os serviços selecionados
 servicos_selecionados = []
 campo_servicos_var = tk.StringVar()
+campo_valor_total_var = tk.StringVar()
 
 # Label e campo de exibição
 tk.Label(frame_entrada, text="Serviços Prestados:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=1, column=4, padx=5)
 entry_servicos = tk.Entry(frame_entrada, textvariable=campo_servicos_var, width=40, font=("Segoe UI", 10), state="readonly")
 entry_servicos.grid(row=1, column=5, padx=(0, 5), pady=5)
 
+
+
 # Botão para abrir popup
 btn_servicos = tk.Button(frame_entrada, text="Selecionar", command=abrir_popup_servicos, font=("Segoe UI", 9), bg="#4CAF50", fg="white")
+entry_servicos.grid(row=1, column=5, padx=(0, 5), pady=5)
 btn_servicos.grid(row=1, column=6, padx=5)
 
 tk.Label(frame_entrada, text="Tipo:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=0, column=2, padx=5)
@@ -800,7 +815,7 @@ entrada_data_ordem = tk.Entry(frame_entrada, font=("Segoe UI", 10), width=20)
 entrada_data_ordem.grid(row=2, column=1, padx=5, pady=2)
 
 tk.Label(frame_entrada, text="Valor Total (R$):", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=1, column=2, padx=5)
-entrada_valor_total = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
+entrada_valor_total = tk.Entry(frame_entrada, textvariable=campo_valor_total_var, width=20, font=("Segoe UI", 10), state="readonly")
 entrada_valor_total.grid(row=1, column=3)
 
 tk.Label(frame_entrada, text="Data Entrega:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=2, column=2, padx=5)
