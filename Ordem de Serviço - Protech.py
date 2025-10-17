@@ -744,18 +744,17 @@ def abrir_popup_servicos():
         servicos_selecionados.clear()
         total = 0.0
         textos = []
-    for servico, var in vars_popup:
-        if var.get():
-            texto.append(f"{servico['nome']} - R$ {servico['valor']}")
-            try:
-                total += float(servico['valor'].replace(",", "."))
-            except ValueError:
-                pass
-    campo_servicos_var.set(", ".join(texto))
-    campo_valor_total_var.set(f"R$ {total:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-    popup.destroy()
+        for servico, var in vars_popup:
+            if var.get():
+                textos.append(f"{servico['nome']} - R$ {servico['valor']}")
+                try:
+                    total += float(servico['valor'].replace(",", "."))
+                except ValueError:
+                    pass
+        campo_servicos_var.set(", ".join(textos))
+        campo_valor_total_var.set(f"R$ {total:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        popup.destroy()
 
-    # ✅ Botão "Confirmar" dentro da função, onde popup existe
     btn_confirmar = tk.Button(popup, text="Confirmar", command=confirmar, font=("Segoe UI", 10, "bold"), bg="#4CAF50", fg="white")
     btn_confirmar.pack(pady=10)
 
