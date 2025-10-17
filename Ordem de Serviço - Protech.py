@@ -92,19 +92,23 @@ def gerar_id():
 
 #FUNÇÕES PRINCIPAIS
 def adicionar_ordem():
-    campos = [entrada_modelo, entrada_descricao, entrada_tipo, entrada_custo, entrada_valor_total,
-              entrada_data_ordem, entrada_data_entrega, entrada_cliente, entrada_telefone]
-    nomes_campos = ["modelo", "Descrição", "tipo", "custo", "valor total", "Data da Ordem",
-                    "Data de Entrega", "cliente", "telefone"]
+    # validação existente (mantém sua função validar_campos se tiver)
+    campos = [entrada_modelo, entrada_descricao, entrada_tipo, entrada_custo, entrada_valor_total, entrada_data_ordem, entrada_data_entrega, entrada_cliente, entrada_telefone]
+    nomes_campos = ["modelo", "Descricao", "tipo", "custo", "valor total", "Data da Ordem", "Data de Entrega", "cliente", "telefone"]
     campos_invalidos = validar_campos(campos, nomes_campos)
     if campos_invalidos:
         lista = "\n- " + "\n- ".join(campos_invalidos)
-        messagebox.showerror("Campos obrigatórios", f"Preencha os seguintes campos:\n{lista}")
+        messagebox.showerror("Campos obrigatorios", f"Preencha os seguintes campos:\n{lista}")
         return
 
     try:
-        custo = float(entrada_custo.get())
-        valor_total = float(entrada_valor_total.get())
+        # custo numérico
+        custo = float(entrada_custo.get().replace("R$", "").replace(".", "").replace(",", ".").strip() or 0)
+        # valor_total: pega do campo de exibição (entrada_valor_total) ou calcula a partir de campo_servicos_var se preferir
+        raw_val = entrada_valor_total.get().replace("R$", "").replace(" ", "").strip()
+        raw_val = raw_val.replace(".", "").replace(",", ".") if raw_val else "0"
+        valor_total = float(raw_val)
+
         lucro = valor_total - custo
 
         ordem = {
@@ -113,20 +117,21 @@ def adicionar_ordem():
             "descricao": entrada_descricao.get("1.0", tk.END).strip(),
             "tipo": entrada_tipo.get(),
             "custo": custo,
-            "valor_total": valor_total,
+            "valor_total": valor_total,               # número (para salvar)
+            "valor_total_str": entrada_valor_total.get(),  # string formatada (exibição)
             "lucro": lucro,
-            "data_ordem": datetime.strptime(entrada_data_ordem.get(), "%d/%m/%Y").date(),
-            "data_entrega": datetime.strptime(entrada_data_entrega.get(), "%d/%m/%Y"),
+            "data_ordem": datetime.strptime(entrada_data_ordem.get(), "%d/%m/%Y").date() if entrada_data_ordem.get() else None,
+            "data_entrega": datetime.strptime(entrada_data_entrega.get(), "%d/%m/%Y") if entrada_data_entrega.get() else None,
             "cliente": entrada_cliente.get(),
             "telefone": entrada_telefone.get(),
-         }
+            "servicos": campo_servicos_var.get().strip(),   # <<-- garante salvar serviços do popup
+        }
 
         ordens_servico.append(ordem)
         atualizar_tabela(ordens_servico)
         limpar_campos()
-
     except ValueError:
-        messagebox.showerror("Erro", "Verifique os valores numéricos e datas.")
+        messagebox.showerror("Erro", "Verifique os valores numericos e datas.")
 
 def abrir_janela_servicos_cadastrados():
     janela_servicos = tk.Toplevel(janela)
@@ -167,44 +172,43 @@ def validar_campos(campos, nomes_campos):
 
 def limpar_campos():
     campos = [
-        entrada_modelo,
-        entrada_descricao,
-        entrada_tipo,
-        entrada_custo,
-        entrada_valor_total,
-        entrada_data_ordem,
-        entrada_data_entrega,
-        entrada_cliente,
-        entrada_telefone,
+        entrada_modelo, entrada_descricao, entrada_tipo, entrada_custo, entrada_valor_total,
+        entrada_data_ordem, entrada_data_entrega, entrada_cliente, entrada_telefone,
     ]
-
     for campo in campos:
         if isinstance(campo, tk.Entry):
             campo.delete(0, tk.END)
         elif isinstance(campo, tk.Text):
             campo.delete("1.0", tk.END)
+    # limpa serviços e seu campo
+    try:
+        campo_servicos_var.set("")
+        campo_valor_total_var.set("")
+    except Exception:
+        pass
 
 
 def atualizar_tabela(lista):
     # Limpa a tabela atual
     tabela.delete(*tabela.get_children())
-
     # Insere os dados da lista fornecida
     for ordem in lista:
+        # cuidado: data_ordem e data_entrega podem ser None, ajustar exibição
+        data_ordem_str = ordem["data_ordem"].strftime("%d/%m/%Y") if ordem.get("data_ordem") else ""
+        data_entrega_str = ordem["data_entrega"].strftime("%d/%m/%Y") if ordem.get("data_entrega") else ""
         tabela.insert("", "end", values=(
             ordem["id"],
-            ordem["modelo"],
-            ordem["descricao"],
-            ordem["tipo"],
-            f'R${ordem["custo"]:.2f}',
-            f'R${ordem["valor_total"]:.2f}',
+            ordem.get("modelo", ""),
+            ordem.get("descricao", ""),
+            ordem.get("tipo", ""),
+            f'R${ordem.get("custo", 0):.2f}',
+            f'R${ordem.get("valor_total", 0):.2f}',
             f'R${ordem.get("lucro", 0):.2f}',
-            ordem["data_ordem"].strftime("%d/%m/%Y"),
-            ordem["data_entrega"].strftime("%d/%m/%Y"),
-            ordem["cliente"],
-            ordem["telefone"],
-        ))
-
+            data_ordem_str,
+            data_entrega_str,
+            ordem.get("cliente", ""),
+            ordem.get("telefone", ""),
+            ordem.get("servicos", "")) )
 
 def filtrar_por_dia():
     data_selecionada = entrada_data_filtro.get_date()
@@ -254,56 +258,103 @@ def calcular_balanco():
 
 def salvar_csv():
     if not ordens_servico:
-        messagebox.showwarning("Nenhuma ordem", "Não há ordens para salvar.")
+        messagebox.showwarning("Nenhuma ordem", "Nao ha ordens para salvar.")
         return
 
     resposta = messagebox.askyesnocancel(
         "Salvar CSV",
-        "Deseja sobrescrever o arquivo atual?\n\nSim: sobrescrever\nNão: salvar como novo\nCancelar: abortar"
+        "Deseja sobrescrever o arquivo atual?\n\nSim: sobrescrever\nNao: salvar como novo\nCancelar: abortar"
     )
-
     if resposta is None:
-        return  # Cancelado
-
-    if resposta:  # Sim → sobrescrever
-        caminho = filedialog.askopenfilename(
-            defaultextension=".csv",
-            filetypes=[("Arquivos CSV", "*.csv")],
-            title="Selecione o arquivo para sobrescrever"
-        )
-    else:  # Não → salvar como novo
-        caminho = filedialog.asksaveasfilename(
-            defaultextension=".csv",
-            filetypes=[("Arquivos CSV", "*.csv")],
-            title="Salvar como novo arquivo"
-        )
-
+        return
+    if resposta:
+        caminho = filedialog.askopenfilename(defaultextension=".csv", filetypes=[("Arquivos CSV", "*.csv")], title="Selecione o arquivo para sobrescrever")
+    else:
+        caminho = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("Arquivos CSV", "*.csv")], title="Salvar como novo")
     if not caminho:
-        return  # Usuário cancelou o diálogo
+        return
+
+    def _normalizar_valor(v):
+        # aceita float ou string; retorna string com ponto como separador (para CSV)
+        try:
+            if v is None:
+                return "0.00"
+            if isinstance(v, (int, float)):
+                return f"{float(v):.2f}"
+            s = str(v).strip()
+            # remove "R$", espaços e milhares, transforma vírgula em ponto
+            s = s.replace("R$", "").replace("r$", "").replace(" ", "")
+            s = s.replace(".", "").replace(",", ".") if ("," in s and "." in s and s.find(",") > s.find(".")) else s.replace(".", "")
+            s = s.replace(",", ".")
+            return f"{float(s):.2f}"
+        except Exception:
+            return "0.00"
 
     try:
         with open(caminho, "w", newline="", encoding="utf-8") as arquivo:
-            campos = ["ID", "modelo", "descricao", "tipo", "custo", "valor_total", "lucro",
-                      "data_ordem", "data_entrega", "cliente", "telefone", ]
+            campos = ["ID", "modelo", "descricao", "tipo", "custo", "valor_total", "lucro", "data_ordem", "data_entrega", "cliente", "telefone", "servicos"]
             escritor = csv.DictWriter(arquivo, fieldnames=campos)
             escritor.writeheader()
             for o in ordens_servico:
+                # garante presença das chaves e normaliza tipos
+                id_val = o.get("id", "")
+                modelo = o.get("modelo", "")
+                descricao = o.get("descricao", "")
+                tipo = o.get("tipo", "")
+                custo_raw = o.get("custo", 0)
+                # normaliza custo para número com ponto
+                try:
+                    custo = float(custo_raw)
+                except Exception:
+                    try:
+                        custo = float(str(custo_raw).replace("R$", "").replace(".", "").replace(",", "."))
+                    except Exception:
+                        custo = 0.0
+                valor_total_norm = _normalizar_valor(o.get("valor_total", o.get("valor_total_str", "")))
+                # lucro: calcula se não existir
+                lucro = o.get("lucro", "")
+                try:
+                    if lucro == "" or lucro is None:
+                        lucro = float(valor_total_norm) - float(custo)
+                    else:
+                        lucro = float(lucro)
+                except Exception:
+                    lucro = 0.0
+
+                data_ordem = ""
+                data_entrega = ""
+                try:
+                    if o.get("data_ordem"):
+                        dt = o.get("data_ordem")
+                        data_ordem = dt.strftime("%d/%m/%Y") if hasattr(dt, "strftime") else str(dt)
+                except Exception:
+                    data_ordem = str(o.get("data_ordem", "")) or ""
+
+                try:
+                    if o.get("data_entrega"):
+                        dt2 = o.get("data_entrega")
+                        data_entrega = dt2.strftime("%d/%m/%Y") if hasattr(dt2, "strftime") else str(dt2)
+                except Exception:
+                    data_entrega = str(o.get("data_entrega", "")) or ""
+
                 escritor.writerow({
-                    "ID": o["id"],
-                    "modelo": o["modelo"],
-                    "descricao": o["descricao"],
-                    "tipo": o["tipo"],
-                    "custo": o["custo"],
-                    "valor_total": o["valor_total"],
-                    "lucro": o["lucro"],
-                    "data_ordem": o["data_ordem"].strftime("%d/%m/%Y"),
-                    "data_entrega": o["data_entrega"].strftime("%d/%m/%Y"),
-                    "cliente": o["cliente"],
-                    "telefone": o["telefone"],                  
+                    "ID": id_val,
+                    "modelo": modelo,
+                    "descricao": descricao,
+                    "tipo": tipo,
+                    "custo": f"{float(custo):.2f}",
+                    "valor_total": valor_total_norm,
+                    "lucro": f"{float(lucro):.2f}",
+                    "data_ordem": data_ordem,
+                    "data_entrega": data_entrega,
+                    "cliente": o.get("cliente", ""),
+                    "telefone": o.get("telefone", ""),
+                    "servicos": o.get("servicos", "") or ""
                 })
         messagebox.showinfo("Sucesso", "Arquivo CSV salvo com sucesso.")
     except Exception as e:
         messagebox.showerror("Erro ao salvar", f"Ocorreu um erro:\n{e}")
+
 
 def salvar_como_csv():
     caminho = filedialog.asksaveasfilename(
@@ -330,35 +381,84 @@ def salvar_como_csv():
                 })
         messagebox.showinfo("Salvo", f"Arquivo salvo em:\n{caminho}")
 
+
 def carregar_csv():
     caminho = filedialog.askopenfilename(filetypes=[("Arquivos CSV", "*.csv")])
     if not caminho:
         return
-
     try:
         with open(caminho, newline='', encoding='utf-8') as arquivo:
             leitor = csv.DictReader(arquivo)
             ordens_servico.clear()
             for linha in leitor:
                 try:
+                    # Helper: normalizar valor vindo do CSV (aceita "1234.56" ou "R$ 1.234,56")
+                    def _parse_valor(v):
+                        if v is None:
+                            return 0.0
+                        if isinstance(v, (int, float)):
+                            return float(v)
+                        s = str(v).strip()
+                        if not s:
+                            return 0.0
+                        s = s.replace("R$", "").replace("r$", "").replace(" ", "")
+                        # tenta formas comuns: "1.234,56" ou "1234.56"
+                        # primeiro remove pontos de milhares, transformando vírgula em ponto
+                        if "," in s and "." in s and s.find(",") > s.find("."):
+                            s = s.replace(".", "")
+                        s = s.replace(",", ".")
+                        try:
+                            return float(s)
+                        except Exception:
+                            # último recurso: extrai dígitos e pontos
+                            filtered = "".join(ch for ch in s if ch.isdigit() or ch == ".")
+                            try:
+                                return float(filtered) if filtered else 0.0
+                            except Exception:
+                                return 0.0
+
+                    # parse datas (tenta formato dd/mm/YYYY, se falhar deixa None ou string)
+                    def _parse_data(s):
+                        if not s:
+                            return None
+                        try:
+                            return datetime.strptime(s, "%d/%m/%Y").date()
+                        except Exception:
+                            try:
+                                return datetime.strptime(s, "%Y-%m-%d").date()
+                            except Exception:
+                                return s  # mantém como string se não reconhecer
+
+                    id_raw = linha.get("ID") or linha.get("id") or linha.get("Id") or ""
+                    try:
+                        id_parsed = int(id_raw)
+                    except Exception:
+                        id_parsed = id_raw or 0
+
+                    custo = _parse_valor(linha.get("custo", "") or 0)
+                    # valor_total pode vir como número ou string formatada; tenta chave valor_total, depois valor_total_str
+                    valor_total = _parse_valor(linha.get("valor_total", linha.get("valor_total_str", "")))
+                    lucro = _parse_valor(linha.get("lucro", "")) if linha.get("lucro", "") else (valor_total - custo)
+
                     ordem = {
-                        "id": int(linha.get("ID") or linha.get("id") or 0),
-                        "modelo": linha.get("modelo", ""),
-                        "descricao": linha.get("descricao", ""),
-                        "tipo": linha.get("tipo", ""),
-                        "custo": float(linha.get("custo", 0) or 0),
-                        "valor_total": float(linha.get("valor_total", 0) or 0),
-                        "lucro": float(linha.get("lucro", 0) or 0),
-                        "data_ordem": datetime.strptime(linha.get("data_ordem", ""), "%d/%m/%Y").date(),
-                        "data_entrega": datetime.strptime(linha.get("data_entrega", ""), "%d/%m/%Y"),
-                        "cliente": linha.get("cliente", ""),
-                        "telefone": linha.get("telefone", ""),
+                        "id": id_parsed,
+                        "modelo": linha.get("modelo", "") or "",
+                        "descricao": linha.get("descricao", "") or "",
+                        "tipo": linha.get("tipo", "") or "",
+                        "custo": custo,
+                        "valor_total": valor_total,
+                        "lucro": lucro,
+                        "data_ordem": _parse_data(linha.get("data_ordem", "") or linha.get("Data da Ordem", "")),
+                        "data_entrega": _parse_data(linha.get("data_entrega", "") or linha.get("Data de Entrega", "")),
+                        "cliente": linha.get("cliente", "") or "",
+                        "telefone": linha.get("telefone", "") or "",
+                        "servicos": linha.get("servicos", "") or ""
                     }
                     ordens_servico.append(ordem)
                 except Exception as e:
                     print(f"Erro ao carregar linha: {linha}\n{e}")
-        atualizar_tabela(ordens_servico)
-        messagebox.showinfo("Sucesso", "Arquivo CSV carregado com sucesso.")
+            atualizar_tabela(ordens_servico)
+            messagebox.showinfo("Sucesso", "Arquivo CSV carregado com sucesso.")
     except Exception as e:
         messagebox.showerror("Erro ao carregar", f"Ocorreu um erro:\n{e}")
 
@@ -394,32 +494,41 @@ def carregar_para_edicao(event=None):
     if not valores:
         return
 
+    # popula campos existentes (ajuste índices conforme sua tabela)
     entrada_modelo.delete(0, tk.END)
     entrada_modelo.insert(0, valores[1])
-
     entrada_descricao.delete("1.0", tk.END)
     entrada_descricao.insert("1.0", valores[2])
-
     entrada_tipo.delete(0, tk.END)
     entrada_tipo.insert(0, valores[3])
-
     entrada_custo.delete(0, tk.END)
-    entrada_custo.insert(0, valores[4].replace("R$", "").replace(",", "."))
-
+    entrada_custo.insert(0, valores[4].replace("R$", "").replace(",", ".").strip())
     entrada_valor_total.delete(0, tk.END)
-    entrada_valor_total.insert(0, valores[5].replace("R$", "").replace(",", "."))
-
+    entrada_valor_total.insert(0, valores[5].replace("R$", "").replace(",", ".").strip())
     entrada_data_ordem.delete(0, tk.END)
     entrada_data_ordem.insert(0, valores[7])
-
     entrada_data_entrega.delete(0, tk.END)
     entrada_data_entrega.insert(0, valores[8])
-
     entrada_cliente.delete(0, tk.END)
     entrada_cliente.insert(0, valores[9])
-
     entrada_telefone.delete(0, tk.END)
     entrada_telefone.insert(0, valores[10])
+
+    # serviços: se estiver na coluna da tabela, usa; senão tenta pegar da lista ordens_servico pelo id
+    servicos_val = ""
+    if len(valores) > 11:
+        servicos_val = valores[11]
+    else:
+        try:
+            id_val = valores[0]
+            for o in ordens_servico:
+                if str(o.get("id")) == str(id_val):
+                    servicos_val = o.get("servicos", "")
+                    break
+        except Exception:
+            servicos_val = ""
+    # preenche a variável ligada ao campo (entry_servicos deve ter textvariable=campo_servicos_var)
+    campo_servicos_var.set(servicos_val)
 
 
 def excluir_ordem():
@@ -440,42 +549,41 @@ def excluir_ordem():
     ordens_servico[:] = [o for o in ordens_servico if o["id"] != id_selecionado]
     atualizar_tabela(ordens_servico)
 
-def salvar_edicao():
-    selecionado = tabela.focus()
-    if not selecionado:
-        messagebox.showwarning("Seleção", "Selecione uma ordem para editar.")
-        return
+def salvar_edicao(id_ordem):
+    # localizar índice/objeto na lista ordens_servico pelo id_ordem
+    for i, o in enumerate(ordens_servico):
+        if str(o.get("id")) == str(id_ordem):
+            try:
+                custo = float(entrada_custo.get().replace("R$", "").replace(".", "").replace(",", ".").strip() or 0)
+            except Exception:
+                custo = 0.0
+            raw_val = entrada_valor_total.get().replace("R$", "").replace(" ", "").strip()
+            raw_val = raw_val.replace(".", "").replace(",", ".") if raw_val else "0"
+            try:
+                valor_total = float(raw_val)
+            except Exception:
+                valor_total = 0.0
+            lucro = valor_total - custo
 
-    valores = tabela.item(selecionado, "values")
-    if not valores:
-        messagebox.showerror("Erro", "Não foi possível obter os dados da ordem.")
-        return
-
-    try:
-        indice = int(valores[0]) - 1  # ID da ordem na tabela
-
-        ordem = {
-            "id": int(valores[0]),  # mantém o ID original
-            "modelo": entrada_modelo.get(),
-            "descricao": entrada_descricao.get("1.0", tk.END).strip(),
-            "tipo": entrada_tipo.get(),
-            "custo": float(entrada_custo.get()),
-            "valor_total": float(entrada_valor_total.get()),
-            "lucro": float(entrada_valor_total.get()) - float(entrada_custo.get()),
-            "data_ordem": datetime.strptime(entrada_data_ordem.get(), "%d/%m/%Y").date(),
-            "data_entrega": datetime.strptime(entrada_data_entrega.get(), "%d/%m/%Y"),
-            "cliente": entrada_cliente.get(),
-            "telefone": entrada_telefone.get(),            
-        }
-
-
-        ordens_servico[indice] = ordem  # ← substitui a ordem existente
-        atualizar_tabela(ordens_servico)
-        limpar_campos()
-        messagebox.showinfo("Sucesso", "Ordem atualizada com sucesso.")
-
-    except Exception as e:
-        messagebox.showerror("Erro", f"Erro ao salvar edição: {e}")
+            ordens_servico[i].update({
+                "modelo": entrada_modelo.get(),
+                "descricao": entrada_descricao.get("1.0", tk.END).strip(),
+                "tipo": entrada_tipo.get(),
+                "custo": custo,
+                "valor_total": valor_total,
+                "valor_total_str": entrada_valor_total.get(),
+                "lucro": lucro,
+                "data_ordem": datetime.strptime(entrada_data_ordem.get(), "%d/%m/%Y").date() if entrada_data_ordem.get() else None,
+                "data_entrega": datetime.strptime(entrada_data_entrega.get(), "%d/%m/%Y") if entrada_data_entrega.get() else None,
+                "cliente": entrada_cliente.get(),
+                "telefone": entrada_telefone.get(),
+                "servicos": campo_servicos_var.get().strip(),   # <<-- garante salvar serviços editados
+            })
+            atualizar_tabela(ordens_servico)
+            limpar_campos()
+            return True
+    messagebox.showerror("Erro", "Ordem para edição não encontrada.")
+    return False
 
     
 def mostrar_menu_contexto(event):
@@ -587,46 +695,172 @@ def ver_detalhes():
         messagebox.showerror("Erro", "Não foi possível obter os dados da ordem.")
         return
 
+    # obtém serviços (coluna ou lista em memória)
+    servicos_text = ""
+    if len(valores) > 11 and valores[11]:
+        servicos_text = valores[11]
+    else:
+        try:
+            id_val = valores[0]
+            if 'ordens_servico' in globals():
+                for o in ordens_servico:
+                    if str(o.get("id")) == str(id_val):
+                        servicos_text = o.get("servicos", "") or servicos_text
+                        break
+        except Exception:
+            servicos_text = servicos_text or ""
+
+    # normaliza linhas de serviço
+    linhas = []
+    if servicos_text:
+        if "\n" in servicos_text:
+            linhas = [s.strip() for s in servicos_text.splitlines() if s.strip()]
+        else:
+            import re
+            partes = re.split(r'\s*[;,]\s*', servicos_text)
+            linhas = [p.strip() for p in partes if p.strip()]
+
+    # Janela maior e redimensionável
     janela_detalhes = tk.Toplevel()
     janela_detalhes.title("🔍 Detalhes da Ordem")
-    janela_detalhes.geometry("420x560")
+    janela_detalhes.geometry("720x820")   # maior por padrão
+    janela_detalhes.minsize(640, 560)     # tamanho mínimo aceitável
     janela_detalhes.configure(bg="#f0f0f0")
-    janela_detalhes.resizable(False, False)
+    janela_detalhes.resizable(True, True)
+
+    # Usar frame principal com grid para manter botões fixos abaixo
+    main = tk.Frame(janela_detalhes, bg="#f0f0f0")
+    main.grid(row=0, column=0, sticky="nsew")
+    janela_detalhes.grid_rowconfigure(0, weight=1)
+    janela_detalhes.grid_columnconfigure(0, weight=1)
 
     # Cabeçalho
-    tk.Label(janela_detalhes, text=f"🆔 Ordem #{valores[0]}", font=("Arial", 14, "bold"), bg="#f0f0f0").pack(pady=(20, 5))
-    tk.Label(janela_detalhes, text=f"👤 Cliente: {valores[9]}", font=("Arial", 11), bg="#f0f0f0").pack(pady=2)
-    tk.Label(janela_detalhes, text=f"📞 Telefone: {valores[10]}", font=("Arial", 11), bg="#f0f0f0").pack(pady=2)
+    tk.Label(main, text=f"🆔 Ordem #{valores[0]}", font=("Arial", 16, "bold"), bg="#f0f0f0").pack(pady=(14, 6))
+    tk.Label(main, text=f"👤 Cliente: {valores[9]}", font=("Arial", 12), bg="#f0f0f0").pack(pady=2)
+    tk.Label(main, text=f"📞 Telefone: {valores[10]}", font=("Arial", 12), bg="#f0f0f0").pack(pady=2)
+    tk.Label(main, text="────────────────────────────", bg="#f0f0f0", fg="#888").pack(pady=10)
 
-    # Separador visual
-    tk.Label(janela_detalhes, text="────────────────────────────", bg="#f0f0f0", fg="#888").pack(pady=10)
-
-    # Lista de campos adicionais
+    # Campos principais
     campos = [
-        ("Modelo", valores[1]),
-        ("Descrição", valores[2]),
-        ("Tipo", valores[3]),
-        ("Valor Total", valores[5]),
-        ("Data da Ordem", valores[7]),
-        ("Data de Entrega", valores[8])
-]
-
+        ("Modelo", valores[1] if len(valores) > 1 else ""),
+        ("Descrição", valores[2] if len(valores) > 2 else ""),
+        ("Tipo", valores[3] if len(valores) > 3 else ""),
+        ("Valor Total", valores[5] if len(valores) > 5 else ""),
+        ("Data da Ordem", valores[7] if len(valores) > 7 else ""),
+        ("Data de Entrega", valores[8] if len(valores) > 8 else "")
+    ]
     for label, valor in campos:
-        frame = tk.Frame(janela_detalhes, bg="#f0f0f0")
-        frame.pack(fill="x", padx=20, pady=4)
-        tk.Label(frame, text=f"{label}:", font=("Arial", 10, "bold"), width=15, anchor="w", bg="#f0f0f0").pack(side="left")
-        tk.Label(frame, text=valor, font=("Arial", 10), anchor="w", bg="#f0f0f0").pack(side="left")
+        frame = tk.Frame(main, bg="#f0f0f0")
+        frame.pack(fill="x", padx=22, pady=4)
+        tk.Label(frame, text=f"{label}:", font=("Arial", 10, "bold"), width=16, anchor="w", bg="#f0f0f0").pack(side="left")
+        tk.Label(frame, text=valor, font=("Arial", 10), anchor="w", bg="#f0f0f0", wraplength=520).pack(side="left")
 
-    # Linha de assinatura
-    tk.Label(janela_detalhes, text="", bg="#f0f0f0").pack(pady=10)
-    tk.Frame(janela_detalhes, height=2, bg="black").pack(fill="x", padx=60, pady=(10, 2))
-    tk.Label(janela_detalhes, text="Assinatura do cliente", font=("Arial", 10, "italic"), bg="#f0f0f0").pack(pady=(0, 20))
+    # Área de serviços: título + container com canvas (maior)
+    tk.Label(main, text="Serviços Prestados:", anchor="w", bg="#f0f0f0", font=("Arial", 12, "bold")).pack(anchor="w", padx=22, pady=(8,0))
+    cont_serv = tk.Frame(main, bg="#ffffff", bd=1, relief="solid")
+    cont_serv.pack(fill="both", expand=True, padx=22, pady=(6, 12))
 
-    # Linha de assinatura do executor
-    tk.Frame(janela_detalhes, height=2, bg="black").pack(fill="x", padx=60, pady=(10, 2))
-    tk.Label(janela_detalhes, text="Assinatura do executor", font=("Arial", 10, "italic"), bg="#f0f0f0").pack(pady=(0, 20))
+    # Canvas com scrollbar vertical e também horizontal para linhas longas
+    canvas = tk.Canvas(cont_serv, bg="#ffffff", highlightthickness=0)
+    v_scroll = tk.Scrollbar(cont_serv, orient="vertical", command=canvas.yview)
+    h_scroll = tk.Scrollbar(cont_serv, orient="horizontal", command=canvas.xview)
+    scroll_frame = tk.Frame(canvas, bg="#ffffff")
 
-    # Funções internas para exportar os dados
+    scroll_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+    canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
+    canvas.configure(yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set)
+
+    canvas.pack(side="top", fill="both", expand=True)
+    v_scroll.pack(side="right", fill="y")
+    h_scroll.pack(side="bottom", fill="x")
+
+    # Preenche cada serviço como label separada, mantendo padrão de fonte e alinhamento
+    if not linhas:
+        tk.Label(scroll_frame, text="Nenhum serviço registrado.", font=("Arial", 11), bg="#ffffff", anchor="w", justify="left").pack(fill="x", padx=12, pady=8)
+    else:
+        for s in linhas:
+            tk.Label(scroll_frame, text=f"• {s}", font=("Arial", 11), bg="#ffffff", anchor="w", justify="left", wraplength=620).pack(fill="x", padx=12, pady=6)
+
+    # Área de assinaturas e botões fixos em frame inferior
+    footer = tk.Frame(janela_detalhes, bg="#f0f0f0")
+    footer.grid(row=1, column=0, sticky="ew")
+    janela_detalhes.grid_rowconfigure(1, weight=0)
+
+    # Linhas de assinatura dentro do footer para garantir visibilidade
+    sig_frame = tk.Frame(footer, bg="#f0f0f0")
+    sig_frame.pack(fill="x", padx=22, pady=(8,6))
+    tk.Frame(sig_frame, height=2, bg="black").pack(fill="x", padx=40, pady=(4,2))
+    tk.Label(sig_frame, text="Assinatura do cliente", font=("Arial", 10, "italic"), bg="#f0f0f0").pack(pady=(2,8))
+    tk.Frame(sig_frame, height=2, bg="black").pack(fill="x", padx=40, pady=(4,2))
+    tk.Label(sig_frame, text="Assinatura do executor", font=("Arial", 10, "italic"), bg="#f0f0f0").pack(pady=(2,8))
+
+    # Botões finais: Imprimir, Salvar PDF, Fechar (sempre visíveis)
+    btn_frame = tk.Frame(footer, bg="#f0f0f0")
+    btn_frame.pack(fill="x", padx=22, pady=(0,12))
+    def _montar_texto_exportacao():
+        lines = []
+        lines.append(f"Ordem ID: {valores[0]}")
+        lines.append(f"Cliente: {valores[9]}")
+        lines.append(f"Telefone: {valores[10]}")
+        lines.append("")
+        for label, valor in campos:
+            lines.append(f"{label}: {valor}")
+        lines.append("")
+        lines.append("Serviços Prestados:")
+        if linhas:
+            for s in linhas:
+                lines.append(f"- {s}")
+        else:
+            lines.append("Nenhum serviço registrado.")
+        lines.append("")
+        lines.append("Assinatura do cliente: ________________________")
+        lines.append("Assinatura do executor: _______________________")
+        return "\n".join(lines)
+
+    import os, tempfile
+    from tkinter import filedialog
+    def imprimir():
+        try:
+            texto = _montar_texto_exportacao()
+            fd, path = tempfile.mkstemp(suffix=".txt")
+            os.close(fd)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(texto)
+            if os.name == "nt":
+                try:
+                    os.startfile(path, "print")
+                except Exception:
+                    messagebox.showinfo("Imprimir", f"Arquivo preparado para impressão em: {path}")
+            else:
+                messagebox.showinfo("Imprimir", f"Arquivo preparado em: {path}")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Falha ao preparar impressão:\n{e}")
+
+    def salvar_pdf():
+        try:
+            texto = _montar_texto_exportacao()
+            caminho = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF", "*.pdf"), ("Texto", "*.txt")])
+            if not caminho:
+                return
+            with open(caminho, "w", encoding="utf-8") as f:
+                f.write(texto)
+            messagebox.showinfo("Salvar", f"Arquivo salvo em: {caminho}")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Falha ao salvar arquivo:\n{e}")
+
+    def copiar_servicos():
+        try:
+            janela.clipboard_clear()
+            janela.clipboard_append(servicos_text)
+            messagebox.showinfo("Copiado", "Serviços copiados para a área de transferência.")
+        except Exception:
+            messagebox.showerror("Erro", "Falha ao copiar para a área de transferência.")
+
+    tk.Button(btn_frame, text="Imprimir", command=imprimir, width=14, bg="#4CAF50", fg="white").pack(side="left")
+    tk.Button(btn_frame, text="Salvar PDF", command=salvar_pdf, width=14).pack(side="left", padx=8)
+    tk.Button(btn_frame, text="Copiar Serviços", command=copiar_servicos, width=14).pack(side="left", padx=8)
+    tk.Button(btn_frame, text="Fechar", command=janela_detalhes.destroy, width=12).pack(side="right")
+
     def imprimir_detalhes():
         texto = "\n".join([f"{label}: {valor}" for label, valor in campos])
         with tempfile.NamedTemporaryFile(delete=False, suffix=".txt", mode="w", encoding="utf-8") as temp:
