@@ -791,15 +791,12 @@ campo_servicos_var = tk.StringVar()
 campo_valor_total_var = tk.StringVar()
 
 # Label e campo de exibição
+
 tk.Label(frame_entrada, text="Serviços Prestados:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=1, column=4, padx=5)
 entry_servicos = tk.Entry(frame_entrada, textvariable=campo_servicos_var, width=40, font=("Segoe UI", 10), state="readonly")
 entry_servicos.grid(row=1, column=5, padx=(0, 5), pady=5)
 
-
-
-# Botão para abrir popup
 btn_servicos = tk.Button(frame_entrada, text="Selecionar", command=abrir_popup_servicos, font=("Segoe UI", 9), bg="#4CAF50", fg="white")
-entry_servicos.grid(row=1, column=5, padx=(0, 5), pady=5)
 btn_servicos.grid(row=1, column=6, padx=5)
 
 tk.Label(frame_entrada, text="Tipo:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=0, column=2, padx=5)
