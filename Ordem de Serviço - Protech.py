@@ -744,17 +744,16 @@ def abrir_popup_servicos():
         servicos_selecionados.clear()
         total = 0.0
         textos = []
-        for servico, var in vars_popup:
-            if var.get():
-                textos.append(f"{servico['nome']} - R$ {servico['valor']}")
-                try:
-                    total += float(servico['valor'].replace(",", "."))
-                except ValueError:
-                    pass
-        campo_servicos_var.set(", ".join(textos))
-        entrada_valor_total.delete(0, tk.END)
-        entrada_valor_total.insert(0, f"R$ {total:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-        popup.destroy()
+    for servico, var in vars_popup:
+        if var.get():
+            texto.append(f"{servico['nome']} - R$ {servico['valor']}")
+            try:
+                total += float(servico['valor'].replace(",", "."))
+            except ValueError:
+                pass
+    campo_servicos_var.set(", ".join(texto))
+    campo_valor_total_var.set(f"R$ {total:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    popup.destroy()
 
     # ✅ Botão "Confirmar" dentro da função, onde popup existe
     btn_confirmar = tk.Button(popup, text="Confirmar", command=confirmar, font=("Segoe UI", 10, "bold"), bg="#4CAF50", fg="white")
@@ -813,7 +812,8 @@ entrada_data_ordem.grid(row=2, column=1, padx=5, pady=2)
 tk.Label(frame_entrada, text="Valor Total (R$):", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=1, column=2, padx=5)
 global entrada_valor_total
 entrada_valor_total = tk.Entry(frame_entrada, textvariable=campo_valor_total_var, width=20, font=("Segoe UI", 10), state="readonly")
-entrada_valor_total.grid(row=1, column=3)
+entrada_valor_total.grid(row=1, column=3, padx=5)
+
 
 tk.Label(frame_entrada, text="Data Entrega:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=2, column=2, padx=5)
 entrada_data_entrega = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
