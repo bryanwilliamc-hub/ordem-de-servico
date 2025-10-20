@@ -90,11 +90,15 @@ def gerar_id():
     else:
         return max(ordem.get("id", 0) for ordem in ordens_servico if "id" in ordem) + 1
 
-#FUNÇÕES PRINCIPAIS
+# FUNÇÕES PRINCIPAIS
 def adicionar_ordem():
-    # validação existente (mantém sua função validar_campos se tiver)
-    campos = [entrada_modelo, entrada_descricao, entrada_tipo, entrada_custo, entrada_valor_total, entrada_data_ordem, entrada_data_entrega, entrada_cliente, entrada_telefone]
-    nomes_campos = ["modelo", "Descricao", "tipo", "custo", "valor total", "Data da Ordem", "Data de Entrega", "cliente", "telefone"]
+    global campo_servicos_dropdown # garante acesso à variável global
+
+    # validação existente
+    campos = [entrada_modelo, entrada_descricao, entrada_tipo, entrada_custo, entrada_valor_total,
+              entrada_data_ordem, entrada_data_entrega, entrada_cliente, entrada_telefone]
+    nomes_campos = ["modelo", "Descricao", "tipo", "custo", "valor total", "Data da Ordem",
+                    "Data de Entrega", "cliente", "telefone"]
     campos_invalidos = validar_campos(campos, nomes_campos)
     if campos_invalidos:
         lista = "\n- " + "\n- ".join(campos_invalidos)
@@ -104,35 +108,45 @@ def adicionar_ordem():
     try:
         # custo numérico
         custo = float(entrada_custo.get().replace("R$", "").replace(".", "").replace(",", ".").strip() or 0)
-        # valor_total: pega do campo de exibição (entrada_valor_total) ou calcula a partir de campo_servicos_var se preferir
         raw_val = entrada_valor_total.get().replace("R$", "").replace(" ", "").strip()
         raw_val = raw_val.replace(".", "").replace(",", ".") if raw_val else "0"
         valor_total = float(raw_val)
-
         lucro = valor_total - custo
 
+        # ⬇️ Captura e adiciona serviço selecionado do dropdown
+        servico_selecionado = campo_servicos_dropdown.get().strip()
+        servicos_existentes = campo_servicos_var.get().strip()
+
+        if servico_selecionado and servico_selecionado not in servicos_existentes:
+            if servicos_existentes:
+                campo_servicos_var.set(servicos_existentes + ", " + servico_selecionado)
+            else:
+                campo_servicos_var.set(servico_selecionado)
+
+        # ⬇️ Monta a ordem
         ordem = {
             "id": gerar_id(),
             "modelo": entrada_modelo.get(),
             "descricao": entrada_descricao.get("1.0", tk.END).strip(),
             "tipo": entrada_tipo.get(),
             "custo": custo,
-            "valor_total": valor_total,               # número (para salvar)
-            "valor_total_str": entrada_valor_total.get(),  # string formatada (exibição)
+            "valor_total": valor_total,
+            "valor_total_str": entrada_valor_total.get(),
             "lucro": lucro,
             "data_ordem": datetime.strptime(entrada_data_ordem.get(), "%d/%m/%Y").date() if entrada_data_ordem.get() else None,
             "data_entrega": datetime.strptime(entrada_data_entrega.get(), "%d/%m/%Y") if entrada_data_entrega.get() else None,
             "cliente": entrada_cliente.get(),
             "telefone": entrada_telefone.get(),
-            "servicos": campo_servicos_var.get().strip(),   # <<-- garante salvar serviços do popup
+            "servicos": campo_servicos_var.get().strip(),
         }
+
         print("DEBUG adicionar_ordem -> servicos:", ordem["servicos"])
-       
+
         ordens_servico.append(ordem)
         atualizar_tabela(ordens_servico)
         limpar_campos()
     except ValueError:
-        messagebox.showerror("Erro", "Verifique os valores numericos e datas.")
+        messagebox.showerror("Erro", "Verifique os valores numéricos e datas.")
 
 def abrir_janela_servicos_cadastrados():
     janela_servicos = tk.Toplevel(janela)
