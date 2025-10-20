@@ -147,50 +147,26 @@ def limitar_texto(entry_widget, max_chars):
             entry_widget.set(texto[:max_chars])
     entry_widget.trace_add("write", callback)
 
-def validar_valor(event):
-    valor = event.widget.get()
-    valor = re.sub(r"[^\d,\.]", "", valor)
-    event.widget.delete(0, tk.END)
-    event.widget.insert(0, valor)
+def validar_valor(event):entrada_valor_total = tk.Entry(..., state="readonly")
 
-def formatar_telefone(event):
+valor = campo_servicos_var.get()
+valor = re.sub(r"[^\d,\.]", "", valor)
+event.widget.delete(0, tk.END)
+event.widget.insert(0, valor)
+
+def formatar_telefone_ao_sair(event):
     texto = re.sub(r"[^\d]", "", event.widget.get())
-    if len(texto) > 11:
-        texto = texto[:11]
-    formatado = ""
-    if len(texto) >= 2:
-        formatado += texto[:2] + "-"
-    if len(texto) >= 7:
-        formatado += texto[2:7] + "-"
-    if len(texto) > 7:
-        formatado += texto[7:]
-    event.widget.delete(0, tk.END)
-    event.widget.insert(0, formatado)
-
-def formatar_data_var(var):
-    def callback(*args):
-        texto = re.sub(r"[^\d]", "", var.get())
-        if len(texto) > 8:
-            texto = texto[:8]
-        formatado = ""
-        if len(texto) >= 2:
-            formatado += texto[:2] + "/"
-        if len(texto) >= 4:
-            formatado += texto[2:4] + "/"
-        if len(texto) > 4:
-            formatado += texto[4:]
-        # Evita sobrescrever se já estiver igual
-        if var.get() != formatado:
-            var.set(formatado)
-    var.trace_add("write", callback)
+    if len(texto) == 11:
+        formatado = f"{texto[:2]}-{texto[2:7]}-{texto[7:]}"
+        event.widget.delete(0, tk.END)
+        event.widget.insert(0, formatado)
 
 def formatar_data_ao_sair(event):
     texto = re.sub(r"[^\d]", "", event.widget.get())
-    if len(texto) != 8:
-        return  # ignora se não tiver 8 dígitos
-    formatado = f"{texto[:2]}/{texto[2:4]}/{texto[4:]}"
-    event.widget.delete(0, tk.END)
-    event.widget.insert(0, formatado)
+    if len(texto) == 8:
+        formatado = f"{texto[:2]}/{texto[2:4]}/{texto[4:]}"
+        event.widget.delete(0, tk.END)
+        event.widget.insert(0, formatado)
 
 def abrir_janela_servicos_cadastrados():
     janela_servicos = tk.Toplevel(janela)
@@ -1101,6 +1077,26 @@ def abrir_popup_servicos():
         chk = tk.Checkbutton(popup, text=texto, variable=var, bg="#f2f2f2", font=("Segoe UI", 10), anchor="w")
         chk.pack(anchor="w", padx=20, pady=2)
         vars_popup.append((servico, var))
+    
+def atualizar_valor_total():
+    texto_servicos = campo_servicos_var.get()
+    total = 0.0
+
+    # Divide os serviços por linha
+    linhas = texto_servicos.split("\n")
+    for linha in linhas:
+        partes = linha.split("R$")
+        if len(partes) == 2:
+            valor_str = partes[1].strip().replace(".", "").replace(",", ".")
+            try:
+                valor = float(valor_str)
+                total += valor
+            except ValueError:
+                pass  # ignora valores inválidos
+
+    # Formata o total como R$ 1.234,56
+    valor_formatado = f"{total:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    campo_valor_total.set(valor_formatado)
 
     def confirmar():
         servicos_selecionados.clear()
@@ -1148,6 +1144,8 @@ servicos_disponiveis = [
 # Variável para armazenar os serviços selecionados
 servicos_selecionados = []
 campo_servicos_var = tk.StringVar()
+label_servicos = tk.Label(frame_entrada, textvariable=campo_servicos_var, width=30, font=("Segoe UI", 10), bg="white", anchor="w")
+label_servicos.grid(row=1, column=5, padx=5)
 campo_servicos_dropdown = tk.StringVar()
 campo_valor_total_var = tk.StringVar()
 
@@ -1157,7 +1155,14 @@ campo_valor_total_var = tk.StringVar()
 tk.Label(frame_entrada, text="Serviços Prestados:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=1, column=4, padx=5)
 entry_servicos = tk.Entry(frame_entrada, textvariable=campo_servicos_var, width=50, state="readonly")
 entry_servicos.grid(row=1, column=5, padx=(0, 5), pady=5)
-btn_servicos = tk.Button(frame_entrada, text="Selecionar", command=abrir_popup_servicos, font=("Segoe UI", 9), bg="#4CAF50", fg="white")
+btn_servicos = tk.Button(
+    frame_entrada,
+    text="Selecionar",
+    command=lambda: [abrir_popup_servicos(), atualizar_valor_total()],
+    font=("Segoe UI", 9),
+    bg="#4CAF50",
+    fg="white"
+)
 btn_servicos.grid(row=1, column=6, padx=5)
 
 # Modelo
@@ -1184,23 +1189,22 @@ entrada_custo.bind("<KeyRelease>", validar_valor)
 # Valor Total
 campo_valor_total = tk.StringVar()
 tk.Label(frame_entrada, text="Valor Total (R$):", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=1, column=2, padx=5)
-entrada_valor_total = tk.Entry(frame_entrada, textvariable=campo_valor_total, width=20, font=("Segoe UI", 10))
+entrada_valor_total = tk.Entry(frame_entrada, textvariable=campo_valor_total, width=20, font=("Segoe UI", 10), state="readonly")
 entrada_valor_total.grid(row=1, column=3)
-entrada_valor_total.bind("<KeyRelease>", validar_valor)
 
-#data ordem
+# Data da Ordem
 campo_data_ordem = tk.StringVar()
-tk.Label(frame_entrada, text="Data da Ordem:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=2, column=0, sticky="w", padx=5, pady=2)
+tk.Label(frame_entrada, text="Data da Ordem:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=2, column=0, padx=5, pady=2)
 entrada_data_ordem = tk.Entry(frame_entrada, textvariable=campo_data_ordem, width=20, font=("Segoe UI", 10))
 entrada_data_ordem.grid(row=2, column=1, padx=5, pady=2)
-formatar_data_var(campo_data_ordem)
+entrada_data_ordem.bind("<FocusOut>", formatar_data_ao_sair)
 
-#data entrega
+# Data Entrega
 campo_data_entrega = tk.StringVar()
 tk.Label(frame_entrada, text="Data Entrega:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=2, column=2, padx=5)
 entrada_data_entrega = tk.Entry(frame_entrada, textvariable=campo_data_entrega, width=20, font=("Segoe UI", 10))
 entrada_data_entrega.grid(row=2, column=3)
-formatar_data_var(campo_data_entrega)
+entrada_data_entrega.bind("<FocusOut>", formatar_data_ao_sair)
 
 # Cliente
 campo_cliente = tk.StringVar()
@@ -1214,7 +1218,7 @@ campo_telefone = tk.StringVar()
 tk.Label(frame_entrada, text="Telefone:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=3, column=2, padx=5, pady=5)
 entrada_telefone = tk.Entry(frame_entrada, textvariable=campo_telefone, width=20, font=("Segoe UI", 10))
 entrada_telefone.grid(row=3, column=3)
-entrada_telefone.bind("<KeyRelease>", formatar_telefone)
+entrada_telefone.bind("<FocusOut>", formatar_telefone_ao_sair)
 
 # Botões principais
 frame_botoes = tk.Frame(janela, bg="#f2f2f2")
