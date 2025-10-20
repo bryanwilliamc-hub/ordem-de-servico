@@ -650,6 +650,7 @@ def abrir_janela_parametrizacao():
             entrada_valor.delete(0, tk.END)
 
     tk.Button(popup, text="Salvar", command=salvar_servico, font=("Segoe UI", 10, "bold"), bg="#4CAF50", fg="white").pack(pady=10)
+    dropdown_servicos['values'] = [s["nome"] for s in servicos_cadastrados]
 
 
 # Barra de menu no topo
@@ -1012,6 +1013,7 @@ def abrir_popup_servicos():
     btn_confirmar = tk.Button(popup, text="Confirmar", command=confirmar, font=("Segoe UI", 10, "bold"), bg="#4CAF50", fg="white")
     btn_confirmar.pack(pady=10)
 
+
 # Frame de entrada
 frame_entrada = tk.Frame(janela, bg="#f2f2f2")
 frame_entrada.pack(pady=10)
@@ -1039,6 +1041,7 @@ servicos_disponiveis = [
 # Variável para armazenar os serviços selecionados
 servicos_selecionados = []
 campo_servicos_var = tk.StringVar()
+campo_servicos_dropdown = tk.StringVar()
 campo_valor_total_var = tk.StringVar()
 
 # Label e campo de exibição
@@ -1049,6 +1052,21 @@ entry_servicos.grid(row=1, column=5, padx=(0, 5), pady=5)
 
 btn_servicos = tk.Button(frame_entrada, text="Selecionar", command=abrir_popup_servicos, font=("Segoe UI", 9), bg="#4CAF50", fg="white")
 btn_servicos.grid(row=1, column=6, padx=5)
+
+tk.Label(frame_entrada, text="Serviço Cadastrado:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=2, column=4, padx=5)
+dropdown_servicos = ttk.Combobox(frame_entrada, textvariable=campo_servicos_dropdown, values=[s["nome"] for s in servicos_cadastrados], state="readonly", width=47)
+dropdown_servicos.grid(row=2, column=5, padx=(0, 5), pady=5)
+
+def atualizar_servicos_selecionados(event=None):
+    servico = campo_servicos_dropdown.get().strip()
+    existentes = campo_servicos_var.get().strip()
+    if servico and servico not in existentes:
+        if existentes:
+            campo_servicos_var.set(existentes + ", " + servico)
+        else:
+            campo_servicos_var.set(servico)
+
+dropdown_servicos.bind("<<ComboboxSelected>>", atualizar_servicos_selecionados)
 
 tk.Label(frame_entrada, text="Tipo:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=0, column=2, padx=5)
 entrada_tipo = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
