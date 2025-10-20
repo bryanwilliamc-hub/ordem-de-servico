@@ -925,6 +925,43 @@ def ver_detalhes():
     tk.Button(frame_botoes, text="📄 Salvar PDF", command=salvar_detalhes_pdf, bg="#5bc0de", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=5)
     tk.Button(frame_botoes, text="❌ Fechar", command=janela_detalhes.destroy, bg="#d9534f", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=5)
 
+def abrir_janela_pagamento():
+    selecionado = tabela.focus()
+    if not selecionado:
+        messagebox.showwarning("Seleção necessária", "Selecione uma ordem para registrar pagamento.")
+        return
+
+    dados = tabela.item(selecionado)["values"]
+    colunas = tabela["columns"]
+    dados_dict = dict(zip(colunas, dados))
+
+    valor_total= dados_dict.get("valor_total", "0")
+    try:
+        valor_total = float(valor_total.replace("R$", "").replace(".", "").replace(",", "."))
+    except ValueError:
+        messagebox.showerror("Erro", "Não foi possível interpretar o valor total da ordem.")
+        return
+
+    popup = tk.Toplevel(janela)
+    popup.title("Registrar Pagamento")
+    popup.geometry("300x200")
+    popup.configure(bg="#f2f2f2")
+
+    tk.Label(popup, text="Valor Pago (R$):", font=("Segoe UI", 10), bg="#f2f2f2").pack(pady=10)
+    entrada_pagamento = tk.Entry(popup, font=("Segoe UI", 10), width=20)
+    entrada_pagamento.pack(pady=5)
+
+    def calcular_saldo():
+        try:
+            valor_pago = float(entrada_pagamento.get().replace("R$", "").replace(".", "").replace(",", ".").strip())
+            saldo = valor_total - valor_pago
+            resultado = f"Saldo restante: R$ {saldo:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            tk.Label(popup, text=resultado, font=("Segoe UI", 11, "bold"), bg="#f2f2f2", fg="#333").pack(pady=10)
+        except ValueError:
+            messagebox.showerror("Erro", "Digite um valor válido.")
+
+    tk.Button(popup, text="Calcular", command=calcular_saldo, bg="#4CAF50", fg="white").pack(pady=10)
+
     
 def duplicar_ordem():
     selecionado = tabela.focus()
@@ -1025,35 +1062,6 @@ def abrir_popup_servicos():
 
     btn_confirmar = tk.Button(popup, text="Confirmar", command=confirmar, font=("Segoe UI", 10, "bold"), bg="#4CAF50", fg="white")
     btn_confirmar.pack(pady=10)
-
-def abrir_janela_pagamento():
-    selecionado = tabela.focus()
-    if not selecionado:
-        messagebox.showwarning("Seleção necessária", "Selecione uma ordem para registrar pagamento.")
-        return
-
-    dados = tabela.item(selecionado)["values"]
-    valor_total = float(str(dados[5]).replace("R$", "").replace(".", "").replace(",", "."))
-
-    popup = tk.Toplevel(janela)
-    popup.title("Registrar Pagamento")
-    popup.geometry("300x200")
-    popup.configure(bg="#f2f2f2")
-
-    tk.Label(popup, text="Valor Pago (R$):", font=("Segoe UI", 10), bg="#f2f2f2").pack(pady=10)
-    entrada_pagamento = tk.Entry(popup, font=("Segoe UI", 10), width=20)
-    entrada_pagamento.pack(pady=5)
-
-    def calcular_saldo():
-        try:
-            valor_pago = float(entrada_pagamento.get().replace("R$", "").replace(".", "").replace(",", ".").strip())
-            saldo = valor_total - valor_pago
-            resultado = f"Saldo restante: R$ {saldo:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-            tk.Label(popup, text=resultado, font=("Segoe UI", 11, "bold"), bg="#f2f2f2", fg="#333").pack(pady=10)
-        except ValueError:
-            messagebox.showerror("Erro", "Digite um valor válido.")
-
-    tk.Button(popup, text="Calcular", command=calcular_saldo, bg="#4CAF50", fg="white").pack(pady=10)
 
 
 # Frame de entrada
@@ -1203,6 +1211,7 @@ tabela.bind("<Double-1>", carregar_para_edicao)
 menu_contexto = tk.Menu(janela, tearoff=0)
 menu_contexto.add_command(label="Editar", command=carregar_para_edicao)
 menu_contexto.add_command(label="Excluir", command=excluir_ordem)
+
 
 tabela.bind("<Button-3>", mostrar_menu_contexto)  # Botão direito
 
