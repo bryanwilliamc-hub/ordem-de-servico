@@ -179,8 +179,18 @@ def formatar_data_var(var):
             formatado += texto[2:4] + "/"
         if len(texto) > 4:
             formatado += texto[4:]
-        var.set(formatado)
+        # Evita sobrescrever se já estiver igual
+        if var.get() != formatado:
+            var.set(formatado)
     var.trace_add("write", callback)
+
+def formatar_data_ao_sair(event):
+    texto = re.sub(r"[^\d]", "", event.widget.get())
+    if len(texto) != 8:
+        return  # ignora se não tiver 8 dígitos
+    formatado = f"{texto[:2]}/{texto[2:4]}/{texto[4:]}"
+    event.widget.delete(0, tk.END)
+    event.widget.insert(0, formatado)
 
 def abrir_janela_servicos_cadastrados():
     janela_servicos = tk.Toplevel(janela)
@@ -1180,12 +1190,14 @@ entrada_valor_total.bind("<KeyRelease>", validar_valor)
 
 #data ordem
 campo_data_ordem = tk.StringVar()
+tk.Label(frame_entrada, text="Data da Ordem:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=2, column=0, sticky="w", padx=5, pady=2)
 entrada_data_ordem = tk.Entry(frame_entrada, textvariable=campo_data_ordem, width=20, font=("Segoe UI", 10))
 entrada_data_ordem.grid(row=2, column=1, padx=5, pady=2)
 formatar_data_var(campo_data_ordem)
 
 #data entrega
 campo_data_entrega = tk.StringVar()
+tk.Label(frame_entrada, text="Data Entrega:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=2, column=2, padx=5)
 entrada_data_entrega = tk.Entry(frame_entrada, textvariable=campo_data_entrega, width=20, font=("Segoe UI", 10))
 entrada_data_entrega.grid(row=2, column=3)
 formatar_data_var(campo_data_entrega)
