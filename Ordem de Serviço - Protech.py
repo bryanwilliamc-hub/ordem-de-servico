@@ -11,6 +11,7 @@ from reportlab.pdfgen import canvas
 from tkcalendar import DateEntry
 from PIL import Image, ImageTk
 import sys, os
+import re
 
 
 def verificar_login(usuario, senha_digitada):
@@ -138,6 +139,49 @@ def adicionar_ordem():
     except ValueError:
         messagebox.showerror("Erro", "Verifique os valores numéricos e datas.")
 
+
+def limitar_texto(entry_widget, max_chars):
+    def callback(*args):
+        texto = entry_widget.get()
+        if len(texto) > max_chars:
+            entry_widget.set(texto[:max_chars])
+    entry_widget.trace_add("write", callback)
+
+def validar_valor(event):
+    valor = event.widget.get()
+    valor = re.sub(r"[^\d,\.]", "", valor)
+    event.widget.delete(0, tk.END)
+    event.widget.insert(0, valor)
+
+def formatar_telefone(event):
+    texto = re.sub(r"[^\d]", "", event.widget.get())
+    if len(texto) > 11:
+        texto = texto[:11]
+    formatado = ""
+    if len(texto) >= 2:
+        formatado += texto[:2] + "-"
+    if len(texto) >= 7:
+        formatado += texto[2:7] + "-"
+    if len(texto) > 7:
+        formatado += texto[7:]
+    event.widget.delete(0, tk.END)
+    event.widget.insert(0, formatado)
+
+def formatar_data_var(var):
+    def callback(*args):
+        texto = re.sub(r"[^\d]", "", var.get())
+        if len(texto) > 8:
+            texto = texto[:8]
+        formatado = ""
+        if len(texto) >= 2:
+            formatado += texto[:2] + "/"
+        if len(texto) >= 4:
+            formatado += texto[2:4] + "/"
+        if len(texto) > 4:
+            formatado += texto[4:]
+        var.set(formatado)
+    var.trace_add("write", callback)
+
 def abrir_janela_servicos_cadastrados():
     janela_servicos = tk.Toplevel(janela)
     janela_servicos.title("Serviços Cadastrados")
@@ -247,6 +291,7 @@ def filtrar_por_dia():
 # Cores alternadas
     tabela.tag_configure("par", background="#f9f9f9")
     tabela.tag_configure("impar", background="#ffffff")
+
 
 def limpar_filtro():
     if not ordens_servico:
@@ -935,11 +980,13 @@ def abrir_janela_pagamento():
     colunas = tabela["columns"]
     dados_dict = dict(zip(colunas, dados))
 
-    valor_total= dados_dict.get("valor_total", "0")
+    # Usa o nome correto da coluna da Treeview
+    valor_total_str = str(dados_dict.get("valor_total_str", "0")).strip()
+
     try:
-        valor_total = float(valor_total.replace("R$", "").replace(".", "").replace(",", "."))
+        valor_total = float(valor_total_str.replace("R$", "").replace(".", "").replace(",", "."))
     except ValueError:
-        messagebox.showerror("Erro", "Não foi possível interpretar o valor total da ordem.")
+        messagebox.showerror("Erro", f"Não foi possível interpretar o valor total: {valor_total_str}")
         return
 
     popup = tk.Toplevel(janela)
@@ -1096,42 +1143,66 @@ campo_valor_total_var = tk.StringVar()
 
 # Label e campo de exibição
 
+# Serviços Prestados
 tk.Label(frame_entrada, text="Serviços Prestados:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=1, column=4, padx=5)
 entry_servicos = tk.Entry(frame_entrada, textvariable=campo_servicos_var, width=50, state="readonly")
 entry_servicos.grid(row=1, column=5, padx=(0, 5), pady=5)
-
 btn_servicos = tk.Button(frame_entrada, text="Selecionar", command=abrir_popup_servicos, font=("Segoe UI", 9), bg="#4CAF50", fg="white")
 btn_servicos.grid(row=1, column=6, padx=5)
 
+# Modelo
+campo_modelo = tk.StringVar()
+tk.Label(frame_entrada, text="Modelo:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=0, column=0, padx=5)
+entrada_modelo = tk.Entry(frame_entrada, textvariable=campo_modelo, width=30, font=("Segoe UI", 10))
+entrada_modelo.grid(row=0, column=1)
+limitar_texto(campo_modelo, 20)
+
+# Tipo
+campo_tipo = tk.StringVar()
 tk.Label(frame_entrada, text="Tipo:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=0, column=2, padx=5)
-entrada_tipo = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
+entrada_tipo = tk.Entry(frame_entrada, textvariable=campo_tipo, width=30, font=("Segoe UI", 10))
 entrada_tipo.grid(row=0, column=3)
+limitar_texto(campo_tipo, 20)
 
+# Custo
+campo_custo = tk.StringVar()
 tk.Label(frame_entrada, text="Custo (R$):", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=1, column=0, padx=5, pady=5)
-entrada_custo = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
+entrada_custo = tk.Entry(frame_entrada, textvariable=campo_custo, width=20, font=("Segoe UI", 10))
 entrada_custo.grid(row=1, column=1)
+entrada_custo.bind("<KeyRelease>", validar_valor)
 
-tk.Label(frame_entrada, text="Data da Ordem:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=2, column=0, sticky="w", padx=5, pady=2)
-entrada_data_ordem = tk.Entry(frame_entrada, font=("Segoe UI", 10), width=20)
-entrada_data_ordem.grid(row=2, column=1, padx=5, pady=2)
-
+# Valor Total
+campo_valor_total = tk.StringVar()
 tk.Label(frame_entrada, text="Valor Total (R$):", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=1, column=2, padx=5)
-global entrada_valor_total
-entrada_valor_total = tk.Entry(frame_entrada, textvariable=campo_valor_total_var, width=20, font=("Segoe UI", 10), state="readonly")
-entrada_valor_total.grid(row=1, column=3, padx=5)
+entrada_valor_total = tk.Entry(frame_entrada, textvariable=campo_valor_total, width=20, font=("Segoe UI", 10))
+entrada_valor_total.grid(row=1, column=3)
+entrada_valor_total.bind("<KeyRelease>", validar_valor)
 
+#data ordem
+campo_data_ordem = tk.StringVar()
+entrada_data_ordem = tk.Entry(frame_entrada, textvariable=campo_data_ordem, width=20, font=("Segoe UI", 10))
+entrada_data_ordem.grid(row=2, column=1, padx=5, pady=2)
+formatar_data_var(campo_data_ordem)
 
-tk.Label(frame_entrada, text="Data Entrega:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=2, column=2, padx=5)
-entrada_data_entrega = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
+#data entrega
+campo_data_entrega = tk.StringVar()
+entrada_data_entrega = tk.Entry(frame_entrada, textvariable=campo_data_entrega, width=20, font=("Segoe UI", 10))
 entrada_data_entrega.grid(row=2, column=3)
+formatar_data_var(campo_data_entrega)
 
+# Cliente
+campo_cliente = tk.StringVar()
 tk.Label(frame_entrada, text="Cliente:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=3, column=0, padx=5, pady=5)
-entrada_cliente = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
+entrada_cliente = tk.Entry(frame_entrada, textvariable=campo_cliente, width=30, font=("Segoe UI", 10))
 entrada_cliente.grid(row=3, column=1)
+limitar_texto(campo_cliente, 20)
 
+# Telefone
+campo_telefone = tk.StringVar()
 tk.Label(frame_entrada, text="Telefone:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=3, column=2, padx=5, pady=5)
-entrada_telefone = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
+entrada_telefone = tk.Entry(frame_entrada, textvariable=campo_telefone, width=20, font=("Segoe UI", 10))
 entrada_telefone.grid(row=3, column=3)
+entrada_telefone.bind("<KeyRelease>", formatar_telefone)
 
 # Botões principais
 frame_botoes = tk.Frame(janela, bg="#f2f2f2")
