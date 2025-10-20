@@ -126,7 +126,8 @@ def adicionar_ordem():
             "telefone": entrada_telefone.get(),
             "servicos": campo_servicos_var.get().strip(),   # <<-- garante salvar serviços do popup
         }
-
+        print("DEBUG adicionar_ordem -> servicos:", ordem["servicos"])
+       
         ordens_servico.append(ordem)
         atualizar_tabela(ordens_servico)
         limpar_campos()
@@ -259,6 +260,9 @@ def calcular_balanco():
 
 
 def salvar_csv():
+
+    print("DEBUG salvar_csv -> ordens_servico servicos:", [o.get("servicos") for o in ordens_servico])
+    
     if not ordens_servico:
         messagebox.showwarning("Nenhuma ordem", "Nao ha ordens para salvar.")
         return
@@ -1026,7 +1030,7 @@ campo_valor_total_var = tk.StringVar()
 # Label e campo de exibição
 
 tk.Label(frame_entrada, text="Serviços Prestados:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=1, column=4, padx=5)
-entry_servicos = tk.Entry(frame_entrada, textvariable=campo_servicos_var, width=40, font=("Segoe UI", 10), state="readonly")
+entry_servicos = tk.Entry(frame_entrada, textvariable=campo_servicos_var, width=50, state="readonly")
 entry_servicos.grid(row=1, column=5, padx=(0, 5), pady=5)
 
 btn_servicos = tk.Button(frame_entrada, text="Selecionar", command=abrir_popup_servicos, font=("Segoe UI", 9), bg="#4CAF50", fg="white")
