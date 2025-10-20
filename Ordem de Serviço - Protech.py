@@ -640,6 +640,7 @@ janela = tk.Tk()
 janela.title("Sistema de Ordem de Serviço")
 janela.geometry("1100x700")
 janela.configure(bg="#f2f2f2")
+campo_servicos_var = tk.StringVar()
 
 # Lista global para armazenar os serviços cadastrados
 
@@ -1064,19 +1065,36 @@ tk.Button(janela, text="Alternar Tema", command=alternar_tema, width=20, bg="#33
 
 # Função para abrir o popup
 def abrir_popup_servicos():
-    global entrada_valor_total
     popup = tk.Toplevel(janela)
     popup.title("Selecionar Serviços Prestados")
     popup.geometry("400x400")
     popup.configure(bg="#f2f2f2")
 
     vars_popup = []
+
+    # Cria os checkboxes para cada serviço
     for servico in servicos_cadastrados:
         texto = f"{servico['nome']} - R$ {servico['valor']}"
         var = tk.BooleanVar()
         chk = tk.Checkbutton(popup, text=texto, variable=var, bg="#f2f2f2", font=("Segoe UI", 10), anchor="w")
         chk.pack(anchor="w", padx=20, pady=2)
         vars_popup.append((servico, var))
+
+    # Botão para confirmar seleção
+    def confirmar_selecao():
+        selecionados = []
+        for servico, var in vars_popup:
+            if var.get():
+                selecionados.append(f"{servico['nome']} - R$ {servico['valor']}")
+
+        servicos_formatados = "\n".join(selecionados)
+        campo_servicos_var.set(servicos_formatados)
+        atualizar_valor_total()
+        popup.destroy()
+
+    btn_confirmar = tk.Button(popup, text="Confirmar", command=confirmar_selecao, bg="#4CAF50", fg="white", font=("Segoe UI", 10))
+    btn_confirmar.pack(pady=10)
+
     
 def atualizar_valor_total():
     texto_servicos = campo_servicos_var.get()
@@ -1143,7 +1161,6 @@ servicos_disponiveis = [
 
 # Variável para armazenar os serviços selecionados
 servicos_selecionados = []
-campo_servicos_var = tk.StringVar()
 label_servicos = tk.Label(frame_entrada, textvariable=campo_servicos_var, width=30, font=("Segoe UI", 10), bg="white", anchor="w")
 label_servicos.grid(row=1, column=5, padx=5)
 campo_servicos_dropdown = tk.StringVar()
