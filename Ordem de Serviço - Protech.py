@@ -113,16 +113,6 @@ def adicionar_ordem():
         valor_total = float(raw_val)
         lucro = valor_total - custo
 
-        # ⬇️ Captura e adiciona serviço selecionado do dropdown
-        servico_selecionado = campo_servicos_dropdown.get().strip()
-        servicos_existentes = campo_servicos_var.get().strip()
-
-        if servico_selecionado and servico_selecionado not in servicos_existentes:
-            if servicos_existentes:
-                campo_servicos_var.set(servicos_existentes + ", " + servico_selecionado)
-            else:
-                campo_servicos_var.set(servico_selecionado)
-
         # ⬇️ Monta a ordem
         ordem = {
             "id": gerar_id(),
@@ -624,6 +614,26 @@ janela.configure(bg="#f2f2f2")
 
 servicos_cadastrados = []
 
+def salvar_servicos_csv():
+    with open("servicos.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["nome", "valor"])
+        for servico in servicos_cadastrados:
+            writer.writerow([servico["nome"], servico["valor"]])
+
+def carregar_servicos_csv():
+    if os.path.exists("servicos.csv"):
+        with open("servicos.csv", "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            servicos_cadastrados.clear()
+            for row in reader:
+                servicos_cadastrados.append({"nome": row["nome"], "valor": row["valor"]})
+
+# ⬅️ Chamada para carregar os serviços ao iniciar o programa
+
+carregar_servicos_csv()
+
+
 def abrir_janela_parametrizacao():
     popup = tk.Toplevel(janela)
     popup.title("Cadastro de Serviços e Valores")
@@ -645,12 +655,15 @@ def abrir_janela_parametrizacao():
         valor = entrada_valor.get().strip()
         if nome and valor:
             servicos_cadastrados.append({"nome": nome, "valor": valor})
+            salvar_servicos_csv()  # ⬅️ salva no CSV
             print(f"Serviço cadastrado: {nome} - R$ {valor}")
             entrada_nome.delete(0, tk.END)
             entrada_valor.delete(0, tk.END)
+            dropdown_servicos['values'] = [s["nome"] for s in servicos_cadastrados]  # atualiza dropdown
+        else:
+            messagebox.showerror("Erro", "Preencha nome e valor do serviço.")
 
     tk.Button(popup, text="Salvar", command=salvar_servico, font=("Segoe UI", 10, "bold"), bg="#4CAF50", fg="white").pack(pady=10)
-    dropdown_servicos['values'] = [s["nome"] for s in servicos_cadastrados]
 
 
 # Barra de menu no topo
@@ -1013,6 +1026,35 @@ def abrir_popup_servicos():
     btn_confirmar = tk.Button(popup, text="Confirmar", command=confirmar, font=("Segoe UI", 10, "bold"), bg="#4CAF50", fg="white")
     btn_confirmar.pack(pady=10)
 
+def abrir_janela_pagamento():
+    selecionado = tabela.focus()
+    if not selecionado:
+        messagebox.showwarning("Seleção necessária", "Selecione uma ordem para registrar pagamento.")
+        return
+
+    dados = tabela.item(selecionado)["values"]
+    valor_total = float(str(dados[5]).replace("R$", "").replace(".", "").replace(",", "."))
+
+    popup = tk.Toplevel(janela)
+    popup.title("Registrar Pagamento")
+    popup.geometry("300x200")
+    popup.configure(bg="#f2f2f2")
+
+    tk.Label(popup, text="Valor Pago (R$):", font=("Segoe UI", 10), bg="#f2f2f2").pack(pady=10)
+    entrada_pagamento = tk.Entry(popup, font=("Segoe UI", 10), width=20)
+    entrada_pagamento.pack(pady=5)
+
+    def calcular_saldo():
+        try:
+            valor_pago = float(entrada_pagamento.get().replace("R$", "").replace(".", "").replace(",", ".").strip())
+            saldo = valor_total - valor_pago
+            resultado = f"Saldo restante: R$ {saldo:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            tk.Label(popup, text=resultado, font=("Segoe UI", 11, "bold"), bg="#f2f2f2", fg="#333").pack(pady=10)
+        except ValueError:
+            messagebox.showerror("Erro", "Digite um valor válido.")
+
+    tk.Button(popup, text="Calcular", command=calcular_saldo, bg="#4CAF50", fg="white").pack(pady=10)
+
 
 # Frame de entrada
 frame_entrada = tk.Frame(janela, bg="#f2f2f2")
@@ -1052,21 +1094,6 @@ entry_servicos.grid(row=1, column=5, padx=(0, 5), pady=5)
 
 btn_servicos = tk.Button(frame_entrada, text="Selecionar", command=abrir_popup_servicos, font=("Segoe UI", 9), bg="#4CAF50", fg="white")
 btn_servicos.grid(row=1, column=6, padx=5)
-
-tk.Label(frame_entrada, text="Serviço Cadastrado:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=2, column=4, padx=5)
-dropdown_servicos = ttk.Combobox(frame_entrada, textvariable=campo_servicos_dropdown, values=[s["nome"] for s in servicos_cadastrados], state="readonly", width=47)
-dropdown_servicos.grid(row=2, column=5, padx=(0, 5), pady=5)
-
-def atualizar_servicos_selecionados(event=None):
-    servico = campo_servicos_dropdown.get().strip()
-    existentes = campo_servicos_var.get().strip()
-    if servico and servico not in existentes:
-        if existentes:
-            campo_servicos_var.set(existentes + ", " + servico)
-        else:
-            campo_servicos_var.set(servico)
-
-dropdown_servicos.bind("<<ComboboxSelected>>", atualizar_servicos_selecionados)
 
 tk.Label(frame_entrada, text="Tipo:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=0, column=2, padx=5)
 entrada_tipo = tk.Entry(frame_entrada, width=20, font=("Segoe UI", 10))
@@ -1184,6 +1211,8 @@ menu_contexto.add_command(label="Ver Detalhes", command=ver_detalhes)
 menu_contexto.add_command(label="Duplicar Ordem", command=duplicar_ordem)
 
 tabela.bind("<Button-3>", mostrar_menu_contexto)
+
+menu_contexto.add_command(label="Registrar Pagamento", command=abrir_janela_pagamento)
 
 # Iniciar interface
 janela.mainloop()
