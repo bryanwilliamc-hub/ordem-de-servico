@@ -140,19 +140,18 @@ def adicionar_ordem():
         messagebox.showerror("Erro", "Verifique os valores numéricos e datas.")
 
 
-def limitar_texto(entry_widget, max_chars):
+def limitar_texto(entry_var, max_chars):
     def callback(*args):
-        texto = entry_widget.get()
+        texto = entry_var.get()
         if len(texto) > max_chars:
-            entry_widget.set(texto[:max_chars])
-    entry_widget.trace_add("write", callback)
+            entry_var.set(texto[:max_chars])
+    entry_var.trace_add("write", callback)
 
-def validar_valor(event):entrada_valor_total = tk.Entry(..., state="readonly")
-
-valor = campo_servicos_var.get()
-valor = re.sub(r"[^\d,\.]", "", valor)
-event.widget.delete(0, tk.END)
-event.widget.insert(0, valor)
+def validar_valor(event):
+    valor = event.widget.get()
+    valor = re.sub(r"[^\d,\.]", "", valor)
+    event.widget.delete(0, tk.END)
+    event.widget.insert(0, valor)
 
 def formatar_telefone_ao_sair(event):
     texto = re.sub(r"[^\d]", "", event.widget.get())
@@ -634,13 +633,14 @@ def mostrar_menu_contexto(event):
         tabela.focus(item)           # define o foco para ações como excluir
         menu_contexto.post(event.x_root, event.y_root)
 
-
 # Janela principal
-janela = tk.Tk()    
+janela = tk.Tk()
+campo_servicos_var = tk.StringVar()    
+dropdown_servicos = tk.StringVar()
 janela.title("Sistema de Ordem de Serviço")
 janela.geometry("1100x700")
 janela.configure(bg="#f2f2f2")
-campo_servicos_var = tk.StringVar()
+
 
 # Lista global para armazenar os serviços cadastrados
 
@@ -1072,35 +1072,44 @@ def abrir_popup_servicos():
 
     vars_popup = []
 
-    # Cria os checkboxes para cada serviço
-    for servico in servicos_cadastrados:
+    def excluir_servico(servico, linha):
+        servicos_cadastrados.remove(servico)
+        linha.destroy()
+
+    for servico in servicos_cadastrados[:]:  # cópia da lista para evitar problemas ao remover
         texto = f"{servico['nome']} - R$ {servico['valor']}"
         var = tk.BooleanVar()
-        chk = tk.Checkbutton(popup, text=texto, variable=var, bg="#f2f2f2", font=("Segoe UI", 10), anchor="w")
-        chk.pack(anchor="w", padx=20, pady=2)
+
+        linha = tk.Frame(popup, bg="#f2f2f2")
+        linha.pack(fill="x", padx=10, pady=2)
+
+        chk = tk.Checkbutton(linha, text=texto, variable=var, bg="#f2f2f2", font=("Segoe UI", 10), anchor="w")
+        chk.pack(side="left", fill="x", expand=True)
+
+        btn_excluir = tk.Button(linha, text="🗑️", bg="#f44336", fg="white", font=("Segoe UI", 10),
+                                command=lambda s=servico, l=linha: excluir_servico(s, l))
+        btn_excluir.pack(side="right", padx=5)
+
         vars_popup.append((servico, var))
 
-    # Botão para confirmar seleção
     def confirmar_selecao():
         selecionados = []
         for servico, var in vars_popup:
             if var.get():
                 selecionados.append(f"{servico['nome']} - R$ {servico['valor']}")
-
         servicos_formatados = "\n".join(selecionados)
         campo_servicos_var.set(servicos_formatados)
         atualizar_valor_total()
         popup.destroy()
 
-    btn_confirmar = tk.Button(popup, text="Confirmar", command=confirmar_selecao, bg="#4CAF50", fg="white", font=("Segoe UI", 10))
+    btn_confirmar = tk.Button(popup, text="Confirmar", command=confirmar_selecao,
+                              bg="#4CAF50", fg="white", font=("Segoe UI", 10))
     btn_confirmar.pack(pady=10)
 
     
 def atualizar_valor_total():
     texto_servicos = campo_servicos_var.get()
     total = 0.0
-
-    # Divide os serviços por linha
     linhas = texto_servicos.split("\n")
     for linha in linhas:
         partes = linha.split("R$")
@@ -1110,30 +1119,9 @@ def atualizar_valor_total():
                 valor = float(valor_str)
                 total += valor
             except ValueError:
-                pass  # ignora valores inválidos
-
-    # Formata o total como R$ 1.234,56
+                pass
     valor_formatado = f"{total:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     campo_valor_total.set(valor_formatado)
-
-    def confirmar():
-        servicos_selecionados.clear()
-        total = 0.0
-        textos = []
-        for servico, var in vars_popup:
-            if var.get():
-                textos.append(f"{servico['nome']} - R$ {servico['valor']}")
-                try:
-                    total += float(servico['valor'].replace(",", "."))
-                except ValueError:
-                    pass
-        campo_servicos_var.set(", ".join(textos))
-        campo_valor_total_var.set(f"R$ {total:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-        popup.destroy()
-
-    btn_confirmar = tk.Button(popup, text="Confirmar", command=confirmar, font=("Segoe UI", 10, "bold"), bg="#4CAF50", fg="white")
-    btn_confirmar.pack(pady=10)
-
 
 # Frame de entrada
 frame_entrada = tk.Frame(janela, bg="#f2f2f2")
@@ -1169,9 +1157,8 @@ campo_valor_total_var = tk.StringVar()
 # Label e campo de exibição
 
 # Serviços Prestados
-tk.Label(frame_entrada, text="Serviços Prestados:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=1, column=4, padx=5)
-entry_servicos = tk.Entry(frame_entrada, textvariable=campo_servicos_var, width=50, state="readonly")
-entry_servicos.grid(row=1, column=5, padx=(0, 5), pady=5)
+tk.Label(frame_entrada, text="Serviços Prestados:", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=1, column=4, padx=5, sticky="nw")
+
 btn_servicos = tk.Button(
     frame_entrada,
     text="Selecionar",
@@ -1180,7 +1167,8 @@ btn_servicos = tk.Button(
     bg="#4CAF50",
     fg="white"
 )
-btn_servicos.grid(row=1, column=6, padx=5)
+btn_servicos.grid(row=1, column=6, padx=5, pady=5, sticky="n")
+
 
 # Modelo
 campo_modelo = tk.StringVar()
@@ -1201,7 +1189,6 @@ campo_custo = tk.StringVar()
 tk.Label(frame_entrada, text="Custo (R$):", bg="#f2f2f2", font=("Segoe UI", 10, "bold")).grid(row=1, column=0, padx=5, pady=5)
 entrada_custo = tk.Entry(frame_entrada, textvariable=campo_custo, width=20, font=("Segoe UI", 10))
 entrada_custo.grid(row=1, column=1)
-entrada_custo.bind("<KeyRelease>", validar_valor)
 
 # Valor Total
 campo_valor_total = tk.StringVar()
